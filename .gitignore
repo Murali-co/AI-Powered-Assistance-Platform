@@ -69,3 +69,22 @@ __pycache__/
 uploads/
 test_uploads/
 data/
+
+# Logs and runtime output
+*.log
+logs/
+*.log.*
+
+# Private SSH keys and credentials
+**/id_ed25519
+**/id_ed25519_*
+**/id_rsa
+**/id_ecdsa
+**/id_ecdsa_*
+**/id_dsa
+**/id_ed25519.pub
+**/id_rsa.pub
+
+# Local model and vector database data
+backend/data/
+backend/test_data/
