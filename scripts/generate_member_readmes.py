@@ -1,6 +1,6 @@
 import os
 
-DIST_DIR = os.path.abspath("COGNIS_MEMBER_DISTRIBUTION")
+DIST_DIR = os.path.abspath("AI_POWERED_ASSISTANCE_PLATFORM_DISTRIBUTION")
 
 readme_m1 = """# AI-Powered Assistance Platform — Member 1: Frontend
 

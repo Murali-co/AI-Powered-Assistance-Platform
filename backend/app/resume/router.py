@@ -14,6 +14,7 @@ from app.models.schemas import SkillGapRequest, CoverLetterRequest, CoverLetterR
 from app.db.models import ResumeVersion
 from app.utils.bg_jobs import create_job, update_job, get_job
 from app.jobs.matcher import JobMatcher
+from app.jobs.scraper import JobScraper
 from app.llm.resume_tailor import ResumeTailorEngine
 from app.utils.limiter import limiter
 from app.db.session import SessionLocal
@@ -164,19 +165,24 @@ def _process_resume_pipeline(file_bytes: bytes, filename: str, user_id: int) -> 
     extracted_skills_data = SkillExtractor.extract_skills(cleaned_full_text, cleaned_sections)
     skills_list = [item["skill"] for item in extracted_skills_data]
     
-    # Save to vector DB
-    ProfileStore.store_profile(
-        user_id=user_id,
-        resume_text=cleaned_full_text,
-        skills=skills_list
-    )
-    
-    # Save historical version
-    DBManager.save_resume_version(
-        user_id=user_id,
-        resume_text=cleaned_full_text,
-        label=f"Resume Upload: {filename}"
-    )
+    # Save canonical version & index via lifecycle (Phase 2 atomic outbox pattern)
+    db = SessionLocal()
+    try:
+        from app.resume.lifecycle import save_canonical_resume, index_resume_version
+        version = save_canonical_resume(
+            db=db,
+            user_id=user_id,
+            resume_text=cleaned_full_text,
+            skills=skills_list,
+            version_label=f"Resume Upload: {filename}",
+            structured_data={"skills": skills_list, "filename": filename}
+        )
+        # Attempt immediate indexing through outbox
+        indexed_ok = index_resume_version(db, version.id)
+        if not indexed_ok:
+            logger.warning(f"Chroma indexing failed for resume version {version.id}; queued in outbox for worker retry.")
+    finally:
+        db.close()
     
     return {
         "skills": skills_list,
@@ -442,16 +448,20 @@ async def edit_profile(
     req: ProfileEditRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    ProfileStore.store_profile(
-        user_id=current_user["id"],
-        resume_text=req.resume_text,
-        skills=req.skills
-    )
-    DBManager.save_resume_version(
-        user_id=current_user["id"],
-        resume_text=req.resume_text,
-        label="Manual Edit via Dashboard"
-    )
+    db = SessionLocal()
+    try:
+        from app.resume.lifecycle import save_canonical_resume, index_resume_version
+        version = save_canonical_resume(
+            db=db,
+            user_id=current_user["id"],
+            resume_text=req.resume_text,
+            skills=req.skills,
+            version_label="Manual Edit via Dashboard",
+            structured_data={"skills": req.skills}
+        )
+        index_resume_version(db, version.id)
+    finally:
+        db.close()
     return {"message": "Profile updated successfully."}
 
 @router.get("/versions")

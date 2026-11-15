@@ -1,0 +1,22 @@
+# Environment and sensitive files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.venv/
+venv/
+
+# Data & uploads
+data/
+test_data/
+uploads/
+test_uploads/
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/

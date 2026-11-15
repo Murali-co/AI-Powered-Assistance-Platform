@@ -4,8 +4,8 @@ import zipfile
 import xml.sax.saxutils as saxutils
 
 ROOT = os.path.abspath(".")
-DIST_DIR = os.path.join(ROOT, "COGNIS_MEMBER_DISTRIBUTION")
-OUTPUT_XLSX = os.path.join(ROOT, "COGNIS_FINAL_FILE_INVENTORY.xlsx")
+DIST_DIR = os.path.join(ROOT, "AI_POWERED_ASSISTANCE_PLATFORM_DISTRIBUTION")
+OUTPUT_XLSX = os.path.join(ROOT, "AI_POWERED_ASSISTANCE_PLATFORM_FINAL_FILE_INVENTORY.xlsx")
 
 def get_sha256(filepath):
     h = hashlib.sha256()

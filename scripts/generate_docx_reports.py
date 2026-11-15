@@ -49,9 +49,9 @@ def add_callout(doc, title, text, bg_hex="F1F5F9", border_color="3B82F6"):
     doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
 # ==============================================================================
-# REPORT 1: COGNIS_FINAL_DISTRIBUTION_REPORT.docx
+# REPORT 1: AI-Powered-Assistance-Platform_FINAL_DISTRIBUTION_REPORT.docx
 # ==============================================================================
-print("Generating COGNIS_FINAL_DISTRIBUTION_REPORT.docx...")
+print("Generating AI-Powered-Assistance-Platform_FINAL_DISTRIBUTION_REPORT.docx...")
 doc1 = Document()
 for s in doc1.sections:
     s.top_margin = Inches(0.8)
@@ -141,13 +141,13 @@ p_decisions.add_run(
     "• Single AI Model Restriction: Authoritatively enforced across all backend AI routers and frontend display components."
 )
 
-doc1.save("COGNIS_FINAL_DISTRIBUTION_REPORT.docx")
-print("Saved COGNIS_FINAL_DISTRIBUTION_REPORT.docx")
+doc1.save("AI-Powered-Assistance-Platform_FINAL_DISTRIBUTION_REPORT.docx")
+print("Saved AI-Powered-Assistance-Platform_FINAL_DISTRIBUTION_REPORT.docx")
 
 # ==============================================================================
-# REPORT 2: COGNIS_FINAL_MISSING_FEATURES_REPORT.docx
+# REPORT 2: AI-Powered-Assistance-Platform_FINAL_MISSING_FEATURES_REPORT.docx
 # ==============================================================================
-print("Generating COGNIS_FINAL_MISSING_FEATURES_REPORT.docx...")
+print("Generating AI-Powered-Assistance-Platform_FINAL_MISSING_FEATURES_REPORT.docx...")
 doc2 = Document()
 for s in doc2.sections:
     s.top_margin = Inches(0.8)
@@ -231,13 +231,13 @@ p2_app.add_run(
     "confirming that the active engine is Local Ollama locked exclusively to qwen3:14b."
 )
 
-doc2.save("COGNIS_FINAL_MISSING_FEATURES_REPORT.docx")
-print("Saved COGNIS_FINAL_MISSING_FEATURES_REPORT.docx")
+doc2.save("AI-Powered-Assistance-Platform_FINAL_MISSING_FEATURES_REPORT.docx")
+print("Saved AI-Powered-Assistance-Platform_FINAL_MISSING_FEATURES_REPORT.docx")
 
 # ==============================================================================
-# REPORT 3: COGNIS_FINAL_INTEGRATION_REPORT.docx
+# REPORT 3: AI-Powered-Assistance-Platform_FINAL_INTEGRATION_REPORT.docx
 # ==============================================================================
-print("Generating COGNIS_FINAL_INTEGRATION_REPORT.docx...")
+print("Generating AI-Powered-Assistance-Platform_FINAL_INTEGRATION_REPORT.docx...")
 doc3 = Document()
 for s in doc3.sections:
     s.top_margin = Inches(0.8)
@@ -311,6 +311,6 @@ p3_ai.add_run(
     "• ChromaDB Vector Store: Runs locally with all-MiniLM-L6-v2 embeddings on CPU to preserve VRAM for local Qwen3:14B inference."
 )
 
-doc3.save("COGNIS_FINAL_INTEGRATION_REPORT.docx")
-print("Saved COGNIS_FINAL_INTEGRATION_REPORT.docx")
+doc3.save("AI-Powered-Assistance-Platform_FINAL_INTEGRATION_REPORT.docx")
+print("Saved AI-Powered-Assistance-Platform_FINAL_INTEGRATION_REPORT.docx")
 

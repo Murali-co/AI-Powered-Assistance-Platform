@@ -1,0 +1,1 @@
+const o=t=>{if(!t||typeof t!="string")return null;const r=t.trim();if(!r)return null;try{const e=new URL(r),n=e.protocol.toLowerCase();return n==="http:"||n==="https:"?e.href:null}catch{return null}};export{o as g};

@@ -4,7 +4,7 @@ import zipfile
 import re
 
 ROOT = os.path.abspath(".")
-DIST_DIR = os.path.join(ROOT, "COGNIS_MEMBER_DISTRIBUTION")
+DIST_DIR = os.path.join(ROOT, "AI_POWERED_ASSISTANCE_PLATFORM_DISTRIBUTION")
 
 MEMBER_1_DIR = os.path.join(DIST_DIR, "MEMBER_1_FRONTEND")
 MEMBER_2_DIR = os.path.join(DIST_DIR, "MEMBER_2_AUTH_PRIVACY")
@@ -13,7 +13,7 @@ MEMBER_4_DIR = os.path.join(DIST_DIR, "MEMBER_4_AI_RAG")
 
 EXCLUDE_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", "dist", "test_data", "test_uploads", "uploads", "data"}
 EXCLUDE_EXTS = {".pyc", ".pyo", ".pyd", ".sqlite3", ".log", ".DS_Store"}
-EXCLUDE_FILES = {".env", ".~lock.COGNIS_MEMBER_DISTRIBUTION_REPORT.docx#", "test_cognis.db", "test_ai_platform.db"}
+EXCLUDE_FILES = {".env", ".~lock.AI_POWERED_ASSISTANCE_PLATFORM_DISTRIBUTION_REPORT.docx#", "test_ai_platform.db", "test_ai_platform.db"}
 
 def safe_copy(src, dst):
     if os.path.isdir(src):

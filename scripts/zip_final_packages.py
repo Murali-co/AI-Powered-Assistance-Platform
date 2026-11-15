@@ -2,13 +2,13 @@ import os
 import zipfile
 
 ROOT = os.path.abspath(".")
-DIST_DIR = os.path.join(ROOT, "COGNIS_MEMBER_DISTRIBUTION")
+DIST_DIR = os.path.join(ROOT, "AI_POWERED_ASSISTANCE_PLATFORM_DISTRIBUTION")
 
 packages = [
-    ("COGNIS_MEMBER_1_FRONTEND_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_1_FRONTEND")),
-    ("COGNIS_MEMBER_2_AUTH_PRIVACY_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_2_AUTH_PRIVACY")),
-    ("COGNIS_MEMBER_3_JOB_MANAGEMENT_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_3_JOB_MANAGEMENT")),
-    ("COGNIS_MEMBER_4_AI_RAG_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_4_AI_RAG")),
+    ("AI-Powered-Assistance-Platform_MEMBER_1_FRONTEND_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_1_FRONTEND")),
+    ("AI-Powered-Assistance-Platform_MEMBER_2_AUTH_PRIVACY_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_2_AUTH_PRIVACY")),
+    ("AI-Powered-Assistance-Platform_MEMBER_3_JOB_MANAGEMENT_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_3_JOB_MANAGEMENT")),
+    ("AI-Powered-Assistance-Platform_MEMBER_4_AI_RAG_FINAL.zip", os.path.join(DIST_DIR, "MEMBER_4_AI_RAG")),
 ]
 
 print("Creating final member ZIP archives...")
