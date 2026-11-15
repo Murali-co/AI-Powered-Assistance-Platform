@@ -711,9 +711,13 @@ class DBManager:
         db = SessionLocal()
         try:
             stmt = update(ApplicationHistory).where(ApplicationHistory.id == app_id).values(status=status)
-            db.execute(stmt)
+            changed = db.execute(stmt)
+            if changed.rowcount:
+                db.add(ApplicationStatusHistory(application_id=app_id, status=status))
             db.commit()
-            DBManager.record_status_history(app_id, status)
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 

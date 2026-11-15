@@ -43,12 +43,8 @@ class ApplicationGenerator:
         )
         
         # 5. Extract Key Match Highlights
-        key_points = [
-            f"Demonstrated experience aligning with requirements for {job_title}.",
-            f"Proficient in skills highlighted in the job description: {', '.join(profile.get('skills', [])[:3])}.",
-            f"Proven ability to deliver value at {company_name} in similar capacities."
-        ]
-        
+        key_points = [f"Profile skill: {skill}" for skill in profile.get("skills", [])[:3]]
+
         # 6. Suggested Email Subject Line
         subject_line = f"Application for {job_title} - {full_name}"
         

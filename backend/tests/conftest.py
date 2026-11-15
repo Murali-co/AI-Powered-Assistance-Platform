@@ -9,32 +9,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from unittest.mock import MagicMock
 from sqlalchemy import text
 
-import socket
-_orig_getaddrinfo = socket.getaddrinfo
-def _ipv4_preferred_getaddrinfo(*args, **kwargs):
-    res = _orig_getaddrinfo(*args, **kwargs)
-    v4 = [r for r in res if r[0] == socket.AF_INET]
-    return v4 if v4 else res
-socket.getaddrinfo = _ipv4_preferred_getaddrinfo
-
 # Set mock environment variables BEFORE any imports or dotenv
 os.environ["TESTING"] = "true"
 os.environ["ENVIRONMENT"] = "testing"
-
-from dotenv import load_dotenv
-# Load workspace .env for Neon PostgreSQL credentials
-load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env")))
-load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env")))
-
-# Ensure DATABASE_URL is Neon PostgreSQL, not SQLite
-db_url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
-if not db_url or "sqlite" in db_url.lower():
-    raise RuntimeError(
-        "Neon PostgreSQL is required for all tests. Please configure DATABASE_URL in .env pointing to a disposable Neon branch."
-    )
-os.environ["DATABASE_URL"] = db_url
-
-os.environ["SECRET_KEY"] = os.environ.get("SECRET_KEY", "test-secret-key-test-secret-key-test-secret-key")
+os.environ["DATABASE_URL"] = "sqlite:///./test_data/test_cognis.db"
+os.environ["DIRECT_URL"] = ""
+os.environ["SECRET_KEY"] = "test-secret-key-test-secret-key-test-secret-key"
 os.environ["CHROMA_PATH"] = "./test_data/chroma_db"
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_ANONYMIZED_TELEMETRY"] = "False"
@@ -233,58 +213,31 @@ def clean_test_dirs():
     db = SessionLocal()
 
     try:
-        # If running against a dedicated disposable test database, truncation is permitted.
-        # Otherwise, preserve pre-existing records and selectively purge test records.
-        if os.environ.get("TEST_DATABASE_URL"):
-            for model in [
-                'refresh_tokens',
-                'two_factor_backup_codes',
-                'auth_audit_log',
-                'workflow_tasks',
-                'workflows',
-                'notifications',
-                'resume_indexing_outbox',
-                'resume_skills',
-                'resume_sections',
-                'resume_versions',
-                'interview_sessions',
-                'chat_messages',
-                'user_criteria',
-                'career_milestones',
-                'application_status_history',
-                'applications_history',
-                'job_applications',
-                'saved_jobs',
-                'feedbacks',
-                'users'
-            ]:
-                try:
-                    db.execute(
-                        text(f"TRUNCATE TABLE {model} RESTART IDENTITY CASCADE")
-                    )
-                except Exception:
-                    try:
-                        db.execute(text(f"DELETE FROM {model}"))
-                    except Exception:
-                        pass
-        else:
-            # Preserve existing data; safely purge test user records only
+        for model in [
+            'refresh_tokens',
+            'two_factor_backup_codes',
+            'auth_audit_log',
+            'workflow_tasks',
+            'workflows',
+            'notifications',
+            'resume_versions',
+            'interview_sessions',
+            'chat_messages',
+            'user_criteria',
+            'career_milestones',
+            'applications_history',
+            'users',
+            'feedbacks'
+        ]:
             try:
-                db.execute(text("DELETE FROM resume_indexing_outbox WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM resume_skills WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM resume_sections WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM resume_versions WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM applications_history WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM job_applications WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM saved_jobs WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM notifications WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM workflow_tasks WHERE workflow_id IN (SELECT id FROM workflows WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%'))"))
-                db.execute(text("DELETE FROM workflows WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM feedbacks WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
-                db.execute(text("DELETE FROM auth_audit_log WHERE ip_address IN ('testclient', '127.0.0.1') OR email LIKE '%test%' OR email LIKE '%example%'"))
-                db.execute(text("DELETE FROM users WHERE email LIKE '%test%' OR email LIKE '%example%'"))
+                db.execute(
+                    text(f"TRUNCATE TABLE {model} RESTART IDENTITY CASCADE")
+                )
             except Exception:
-                pass
+                try:
+                    db.execute(text(f"DELETE FROM {model}"))
+                except Exception:
+                    pass
 
         db.commit()
 

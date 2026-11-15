@@ -31,7 +31,7 @@ def test_full_end_user_journey():
     # 2. Registration (Unverified) & Immediate Login Without Restriction
     # =========================================================================
     unique_suffix = uuid.uuid4().hex[:8]
-    email = f"jordan.taylor.{unique_suffix}@ai-powered-assistance-platform.example.com"
+    email = f"jordan.taylor.{unique_suffix}@cognis.ai"
     password = "SecurePassword123!Robust"
     full_name = "Jordan Taylor"
     

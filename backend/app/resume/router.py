@@ -15,6 +15,7 @@ from app.db.models import ResumeVersion
 from app.utils.bg_jobs import create_job, update_job, get_job
 from app.jobs.matcher import JobMatcher
 from app.jobs.scraper import JobScraper
+from app.config import settings
 from app.llm.resume_tailor import ResumeTailorEngine
 from app.utils.limiter import limiter
 from app.db.session import SessionLocal
@@ -53,7 +54,8 @@ async def _trigger_role_based_live_search(user_id: int, roles: List[str], locati
         )
 
     scraped_roles: List[str] = []
-    for role in roles[:3]:
+    criteria = DBManager.get_criteria(user_id) or {}
+    for role in ([criteria['title']] if criteria.get('title') else roles[:3]):
         try:
             jobs = await run_in_threadpool(
                 JobScraper.scrape,
@@ -107,20 +109,13 @@ async def run_analysis_task(job_id: str, user_id: int, target_role: str):
         cover_letter = await CoverLetterGenerator.generate(resume_text, target_role, tone="formal")
 
         suggested_roles = [target_role]
-        if isinstance(gap_results, dict):
-            for value in [gap_results.get("missing_skills", []), gap_results.get("recommendations", [])]:
-                if isinstance(value, list):
-                    for item in value:
-                        if isinstance(item, str) and item.strip():
-                            suggested_roles.append(item.strip())
-        if len(suggested_roles) < 3:
-            suggested_roles.extend(["Software Engineer", "Backend Developer", "Full Stack Developer"])
 
         fetch_job_ids = []
-        for role in suggested_roles[:3]:
+        criteria = await run_in_threadpool(DBManager.get_criteria, user_id) or {}
+        for role in [criteria.get('title') or target_role]:
             fetch_job_id = create_job(user_id=user_id)
             fetch_job_ids.append(fetch_job_id)
-            asyncio.create_task(_run_role_fetch_task(fetch_job_id, user_id, role, location="Any", hours_old=720))
+            asyncio.create_task(_run_role_fetch_task(fetch_job_id, user_id, role, location=criteria.get('location') or 'Any', hours_old=criteria.get('hours_old') or 168))
 
         result = {
             "skill_gap": gap_results,
@@ -320,25 +315,28 @@ Resume:
 
 Extracted Skills: {', '.join(skills[:20]) if skills else 'Not extracted yet'}
 
-Return ONLY a JSON array of exactly 5 role strings. No explanation, no markdown.
-Example: ["Software Engineer", "Backend Developer", "Python Developer", "API Engineer", "Data Engineer"]
+Return ONLY a JSON object with a "roles" array containing up to 5 job title strings.
+Use only role names, without candidate names, contact details, instructions or explanations.
 """
     
     try:
-        result = await OllamaClient.generate(prompt, format="json", think=False)
+        schema = {'type': 'object', 'properties': {'roles': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1, 'maxItems': 5}}, 'required': ['roles']}
+        result = await OllamaClient.generate(prompt, format=schema, think=False, context_window=2048, max_tokens=128, model_name=settings.ROLE_SUGGESTION_OLLAMA_MODEL)
         result = result.strip()
         # Clean markdown fences if present
         if "```" in result:
             result = result.split("```")[1].replace("json", "").strip()
         roles = json.loads(result)
+        if isinstance(roles, dict):
+            roles = roles.get('roles')
         if not isinstance(roles, list):
             raise ValueError("Not a list")
-        roles = [str(r).strip() for r in roles[:5] if r]
+        roles = [r.strip() for r in roles[:5] if isinstance(r, str) and r.strip() and len(r) <= 120 and '@' not in r and '\n' not in r]
+        if not roles:
+            raise ValueError('No valid role titles')
     except Exception as e:
         print(f"Error suggesting roles: {e}")
-        # Fallback based on skills
-        roles = ["Software Engineer", "Backend Developer", "Full Stack Developer",
-                 "Python Developer", "API Developer"]
+        raise HTTPException(503, 'Local AI could not generate valid role suggestions. Your search criteria were preserved.') from None
 
     try:
         criteria = DBManager.get_criteria(current_user["id"]) or {}
@@ -352,14 +350,6 @@ Example: ["Software Engineer", "Backend Developer", "Python Developer", "API Eng
             metadata={"suggested_roles": roles}
         )
         await _trigger_role_based_live_search(current_user["id"], roles, location=location, hours_old=hours_old)
-        DBManager.save_criteria(
-            user_id=current_user["id"],
-            title=roles[0],
-            location=location,
-            is_remote=location.lower() == "remote",
-            job_type=criteria.get("job_type"),
-            hours_old=hours_old,
-        )
     except Exception as exc:
         print(f"Resume-role live search could not run: {exc}")
     

@@ -54,13 +54,13 @@ def test_dashboard_overview_and_career_roadmap_workflows(client):
     """Integration test: verifies /dashboard/overview, roadmap milestones, and milestone status toggle."""
     # 1. Register & verify user
     client.post("/auth/register", json={
-        "email": "dashboard_user@ai-powered-assistance-platform.example.com",
+        "email": "dashboard_user@cognis.ai",
         "password": "Password123!",
         "full_name": "Dashboard Tester"
     })
-    user = DBManager.get_user_by_email("dashboard_user@ai-powered-assistance-platform.example.com")
+    user = DBManager.get_user_by_email("dashboard_user@cognis.ai")
     DBManager.verify_email(user["id"])
-    login_res = client.post("/auth/login", json={"email": "dashboard_user@ai-powered-assistance-platform.example.com", "password": "Password123!"})
+    login_res = client.post("/auth/login", json={"email": "dashboard_user@cognis.ai", "password": "Password123!"})
     token = login_res.json()["access_token"]
     csrf = login_res.cookies.get("csrf_token")
     headers = {"Authorization": f"Bearer {token}"}
@@ -113,13 +113,13 @@ def test_multi_resume_version_crud_and_isolation(client):
     """Integration test: create, preview, compare, download, and delete resume versions with ownership enforcement."""
     # 1. Register User 1
     client.post("/auth/register", json={
-        "email": "resume_owner@ai-powered-assistance-platform.example.com",
+        "email": "resume_owner@cognis.ai",
         "password": "Password123!",
         "full_name": "Resume Owner"
     })
-    user1 = DBManager.get_user_by_email("resume_owner@ai-powered-assistance-platform.example.com")
+    user1 = DBManager.get_user_by_email("resume_owner@cognis.ai")
     DBManager.verify_email(user1["id"])
-    login1 = client.post("/auth/login", json={"email": "resume_owner@ai-powered-assistance-platform.example.com", "password": "Password123!"})
+    login1 = client.post("/auth/login", json={"email": "resume_owner@cognis.ai", "password": "Password123!"})
     token1 = login1.json()["access_token"]
     csrf1 = login1.cookies.get("csrf_token")
     headers1 = {"Authorization": f"Bearer {token1}"}
@@ -129,13 +129,13 @@ def test_multi_resume_version_crud_and_isolation(client):
 
     # 2. Register User 2 (Attacker/Separate user)
     client.post("/auth/register", json={
-        "email": "resume_intruder@ai-powered-assistance-platform.example.com",
+        "email": "resume_intruder@cognis.ai",
         "password": "Password123!",
         "full_name": "Resume Intruder"
     })
-    user2 = DBManager.get_user_by_email("resume_intruder@ai-powered-assistance-platform.example.com")
+    user2 = DBManager.get_user_by_email("resume_intruder@cognis.ai")
     DBManager.verify_email(user2["id"])
-    login2 = client.post("/auth/login", json={"email": "resume_intruder@ai-powered-assistance-platform.example.com", "password": "Password123!"})
+    login2 = client.post("/auth/login", json={"email": "resume_intruder@cognis.ai", "password": "Password123!"})
     token2 = login2.json()["access_token"]
     csrf2 = login2.cookies.get("csrf_token")
     headers2 = {"Authorization": f"Bearer {token2}"}

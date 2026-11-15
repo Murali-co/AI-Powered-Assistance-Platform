@@ -1,8 +1,9 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from app.auth.utils import get_current_user
 from app.db.session import SessionLocal
@@ -26,8 +27,7 @@ class ProfileCompletenessResponse(BaseModel):
     applications_submitted: bool
     breakdown: dict
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class VerifiedProfileUpdateRequest(BaseModel):
@@ -453,7 +453,11 @@ def _fetch_dashboard_data(user_id: int) -> Dict[str, Any]:
                 JobPosting.preferred_skills,
                 JobPosting.last_verified_at,
             )
-            .filter(JobPosting.is_active == True)
+            .filter(JobPosting.is_active == True,
+                    JobPosting.source_id.like('live:%'),
+                    JobPosting.posted_at >= datetime.now(timezone.utc) - timedelta(days=7),
+                    JobPosting.posted_at <= datetime.now(timezone.utc))
+            .order_by(JobPosting.posted_at.desc())
             .limit(5)
             .all()
         )
@@ -461,16 +465,17 @@ def _fetch_dashboard_data(user_id: int) -> Dict[str, Any]:
         for j in active_jobs:
             req_s = json.loads(j[4] or "[]")
             pref_s = json.loads(j[5] or "[]")
-            esco_eval = ESCOSkillService.analyze_skill_overlap(verified_skills, req_s, pref_s)
+            esco_eval = ESCOSkillService.analyze_skill_overlap(
+                job_required=req_s, job_preferred=pref_s, candidate_skills=verified_skills)
             recommended_jobs.append({
                 "id": j[0],
                 "title": j[1],
                 "company": j[2],
                 "location": j[3],
-                "match_score": int(esco_eval["adjusted_overlap_score"] * 100),
-                "matched_skills": esco_eval["matched_skills"],
-                "missing_skills": esco_eval["missing_skills"],
-                "transferable_skills": [t["candidate_skill"] for t in esco_eval["transferable_skills"]],
+                "match_score": esco_eval['skill_match_score'] if req_s or pref_s else None,
+                "matched_skills": esco_eval['matched_exact'],
+                "missing_skills": esco_eval['missing_mandatory'],
+                "transferable_skills": [t['candidate_skill'] for t in esco_eval['matched_related']],
                 "last_verified_at": j[6].isoformat() if j[6] else None
             })
 

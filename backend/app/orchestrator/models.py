@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .enums import TaskStatus
+from app.db.models import Workflow as WorkflowModel, WorkflowTask as WorkflowTaskModel
 
 
 @dataclass

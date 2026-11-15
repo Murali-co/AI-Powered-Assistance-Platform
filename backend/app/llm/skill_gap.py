@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 import json
 import re
 from typing import List, Dict, Any
@@ -60,13 +61,5 @@ Return ONLY valid JSON.
             validated = SkillGapResponse(**data)
             return validated.model_dump() if hasattr(validated, "model_dump") else validated.dict()
             
-        except Exception as e:
-            print(f"Error parsing skill gap JSON from Ollama: {e}")
-            # Fallback response in case of parsing failures
-            return {
-                "present_skills": [s for s in skills if s.lower() in target_role.lower()] or skills[:3],
-                "missing_skills": ["Cloud Architecture", "System Design", "Advanced " + target_role],
-                "skill_score": 50,
-                "recommendations": ["Conduct deep research on target technologies for " + target_role, "Work on building a complete side project."],
-                "learning_resources": ["Explore tutorials and courses related to " + target_role]
-            }
+        except Exception:
+            raise HTTPException(503, 'Local AI could not produce a valid skill-gap analysis. Please retry.') from None

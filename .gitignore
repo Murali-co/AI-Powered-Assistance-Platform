@@ -71,6 +71,7 @@ test_uploads/
 data/
 
 # Logs and runtime output
+qa_tests/results/
 *.log
 logs/
 *.log.*

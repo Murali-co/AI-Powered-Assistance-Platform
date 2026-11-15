@@ -69,8 +69,9 @@ def create_job(
         db.add(job)
         db.commit()
     except Exception as e:
-        logger.error("Failed to persist background job %s to database: %s", job_id, e)
+        logger.error("Failed to persist background job %s (%s)", job_id, type(e).__name__)
         db.rollback()
+        raise RuntimeError("Background job storage is unavailable.") from None
     finally:
         db.close()
 
@@ -114,8 +115,10 @@ def update_job(
     db: Session = SessionLocal()
     updated = False
     try:
-        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).with_for_update().first()
         if job:
+            if job.status in {"completed", "failed", "cancelled"}:
+                return False
             job.status = clean_status
             if clean_status == "processing" and not job.started_at:
                 job.started_at = now
@@ -136,6 +139,9 @@ def update_job(
         db.rollback()
     finally:
         db.close()
+
+    if not updated:
+        return False
 
     # Update in-memory mirror
     with jobs_lock:
@@ -184,9 +190,8 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
             }
         return None
     except Exception as e:
-        logger.error("Error reading background job %s from database: %s", job_id, e)
-        with jobs_lock:
-            return jobs_db.get(job_id)
+        logger.error("Error reading background job %s (%s)", job_id, type(e).__name__)
+        raise RuntimeError("Background job storage is unavailable.") from None
     finally:
         db.close()
 
@@ -200,7 +205,7 @@ def get_user_job(job_id: str, user_id: int) -> Optional[Dict[str, Any]]:
     if not job:
         return None
     owner_id = job.get("user_id")
-    if owner_id is not None and owner_id != user_id:
+    if owner_id != user_id:
         return None
     return job
 
@@ -209,7 +214,6 @@ def claim_next_job(worker_id: str, job_types: Optional[List[str]] = None) -> Opt
     """
     Multi-worker-safe job claiming using PostgreSQL row locking:
     SELECT FOR UPDATE SKIP LOCKED ensures only one worker claims a job.
-    Falls back gracefully on SQLite.
     """
     db: Session = SessionLocal()
     now = datetime.now(timezone.utc)
@@ -218,12 +222,7 @@ def claim_next_job(worker_id: str, job_types: Optional[List[str]] = None) -> Opt
         if job_types:
             query = query.filter(BackgroundJob.job_type.in_(job_types))
 
-        # Check if database supports FOR UPDATE SKIP LOCKED (PostgreSQL)
-        bind = db.get_bind()
-        if bind and bind.dialect.name == "postgresql":
-            job = query.order_by(BackgroundJob.created_at.asc()).with_for_update(skip_locked=True).first()
-        else:
-            job = query.order_by(BackgroundJob.created_at.asc()).first()
+        job = query.order_by(BackgroundJob.created_at.asc()).with_for_update(skip_locked=True).first()
 
         if not job:
             return None

@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from typing import Optional
 from app.llm.ollama_client import OllamaClient
 from app.services.privacy_service import PrivacyPreservingEngine
@@ -49,13 +50,10 @@ Make sure the output contains ONLY the plain-text cover letter. Do not include a
                 prompt=prompt,
                 system=system_prompt
             )
+            if not isinstance(cover_letter, str) or not cover_letter.strip():
+                raise ValueError('Empty model response')
             if mapping:
                 cover_letter = PrivacyPreservingEngine.restore_text(cover_letter, mapping)
             return cover_letter.strip()
-        except Exception as e:
-            print(f"Error generating cover letter: {e}")
-            return (
-                f"Dear Hiring Team,\n\nI am writing to express my strong interest in the {target_role} position. "
-                f"Based on my professional background and technical skills, I believe I would be a great fit for the role. "
-                f"I look forward to discussing how my experiences match your team's goals.\n\nSincerely,\n[Your Name]"
-            )
+        except Exception:
+            raise HTTPException(503, 'Local AI could not generate a cover letter. Please retry.') from None

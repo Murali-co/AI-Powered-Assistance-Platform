@@ -5,6 +5,7 @@ Supports SMTP (Gmail) with HTML templates
 
 import smtplib
 import logging
+import os
 from typing import List, Optional, Dict, Any
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -28,6 +29,18 @@ class EmailService:
     _last_sent_reset_link: Optional[str] = None
     _last_sent_verification_token: Optional[str] = None
     _last_sent_password_reset_token: Optional[str] = None
+
+    @staticmethod
+    def _capture_for_tests(kind: str, link: str):
+        from urllib.parse import urlparse, parse_qs
+        capture = os.environ.get('TESTING') == 'true'
+        token = parse_qs(urlparse(link).query).get('token', [None])[0] if capture else None
+        if kind == 'verification':
+            EmailService._last_sent_verification_link = link if capture else None
+            EmailService._last_sent_verification_token = token
+        else:
+            EmailService._last_sent_reset_link = link if capture else None
+            EmailService._last_sent_password_reset_token = token
     
     @staticmethod
     def send_email(
@@ -73,11 +86,11 @@ class EmailService:
                 server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
                 server.send_message(msg)
             
-            logger.info(f"✅ Email sent to {to_email}: {subject}")
+            logger.info('Email delivered via SMTP')
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to send email to {to_email}: {str(e)}")
+            logger.error('SMTP email delivery failed (%s)', type(e).__name__)
             if settings.RESEND_API_KEY:
                 logger.info("ℹ️ Falling back to Resend email delivery")
                 return EmailService.send_email_via_resend(to_email, subject, html_content, text_content)
@@ -86,13 +99,7 @@ class EmailService:
     @staticmethod
     def send_verification_email(email: str, full_name: str, verification_link: str) -> bool:
         """Send email verification link"""
-        import urllib.parse
-        EmailService._last_sent_verification_link = verification_link
-        parsed = urllib.parse.urlparse(verification_link)
-        params = urllib.parse.parse_qs(parsed.query)
-        tok = params.get("token", [None])[0]
-        if tok:
-            EmailService._last_sent_verification_token = tok
+        EmailService._capture_for_tests('verification', verification_link)
         
         html_template = """
         <!DOCTYPE html>
@@ -148,7 +155,7 @@ class EmailService:
             text_content=text_content
         )
         if not success:
-            logger.warning(f"\n==================================================\n[DEVELOPMENT ONLY] Verification Link for {email}:\n{verification_link}\n==================================================\n")
+            logger.warning('Verification email was not delivered; configure SMTP or Resend. Tokens are not logged.')
         return success
 
     @staticmethod
@@ -162,7 +169,7 @@ class EmailService:
         if frontend_url is None:
             frontend_url = settings.FRONTEND_URL
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
-        EmailService._last_sent_reset_link = reset_link
+        EmailService._capture_for_tests('reset', reset_link)
         return EmailService.send_password_reset_email(
             email=to_email,
             full_name="User",
@@ -195,26 +202,20 @@ class EmailService:
             }
             response = httpx.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=10)
             if response.status_code in {200, 201}:
-                logger.info(f"✅ Email sent via Resend to {to_email}: {subject}")
+                logger.info('Email delivered via Resend')
                 return True
             logger.error(
-                f"❌ Resend API failed with status {response.status_code}: {response.text}"
+                'Resend email delivery failed with HTTP %s', response.status_code
             )
             return False
         except Exception as e:
-            logger.error(f"❌ Failed to send email via Resend to {to_email}: {str(e)}")
+            logger.error('Resend email delivery failed (%s)', type(e).__name__)
             return False
 
     @staticmethod
     def send_password_reset_email(email: str, full_name: str, reset_link: str) -> bool:
         """Send password reset link"""
-        import urllib.parse
-        EmailService._last_sent_reset_link = reset_link
-        parsed = urllib.parse.urlparse(reset_link)
-        params = urllib.parse.parse_qs(parsed.query)
-        tok = params.get("token", [None])[0]
-        if tok:
-            EmailService._last_sent_password_reset_token = tok
+        EmailService._capture_for_tests('reset', reset_link)
         
         html_template = """
         <!DOCTYPE html>
@@ -270,7 +271,7 @@ class EmailService:
             text_content=text_content
         )
         if not success:
-            logger.warning(f"\n==================================================\n[DEVELOPMENT ONLY] Password Reset Link for {email}:\n{reset_link}\n==================================================\n")
+            logger.warning('Password reset email was not delivered; configure SMTP or Resend. Tokens are not logged.')
         return success
 
     @staticmethod

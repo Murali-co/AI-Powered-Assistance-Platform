@@ -123,6 +123,10 @@ class TwoStageJobMatcher:
             job["match_score"] = job["final_score"]  # Ensure backward compatibility
 
         # Sort reranked jobs by final_score descending
+        for job in remaining:
+            # Unreranked results retain their actual retrieval score.
+            job['final_score'] = float(job.get('bi_encoder_score') or job.get('match_score') or 0)
+            job['match_score'] = job['final_score']
         candidates_to_rerank.sort(key=lambda x: x["final_score"], reverse=True)
         return candidates_to_rerank + remaining
 

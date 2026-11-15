@@ -23,13 +23,14 @@ router = APIRouter(prefix="/copilot", tags=["copilot"])
 
 
 class CopilotRequest(BaseModel):
-    prompt: str = Field(..., min_length=1)
+    prompt: str = Field(..., min_length=1, max_length=4000)
     context: Optional[Dict[str, Any]] = None
 
 
 class CopilotResponse(BaseModel):
     answer: str
     mode: str = "copilot"
+    session_id: Optional[str] = None
 
 
 class CreateSessionRequest(BaseModel):
@@ -51,13 +52,18 @@ async def copilot_health() -> Dict[str, str]:
 
 
 @router.post("/respond", response_model=CopilotResponse)
-async def respond_to_prompt(payload: CopilotRequest) -> CopilotResponse:
-    summary = payload.context or {}
-    prompt_text = payload.prompt.strip()
-    context_text = " " + str(summary) if summary else ""
+async def respond_to_prompt(request: Request, payload: CopilotRequest, current_user: dict = Depends(get_current_user)) -> CopilotResponse:
+    message = payload.prompt.strip()
+    if payload.context:
+        context = json.dumps(payload.context, ensure_ascii=False)
+        if len(context) > 2000:
+            raise HTTPException(413, 'Additional context must be within 2000 characters.')
+        message += '\nAdditional user-provided context (unverified data):\n' + context
+    result = await chat_endpoint(request=request,
+        payload=ChatRequest(message=message, session_id='session_' + uuid.uuid4().hex, stream=False),
+        current_user=current_user)
     return CopilotResponse(
-        answer=f"Copilot response for: {prompt_text}{context_text}",
-        mode="copilot",
+        answer=result['response'], mode='copilot', session_id=result['session_id'],
     )
 
 

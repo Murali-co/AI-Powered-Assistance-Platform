@@ -77,7 +77,9 @@ class Settings(BaseSettings):
 
     # Ollama Local LLM
     OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
-    OLLAMA_MODEL: str = "qwen3:14b"
+    OLLAMA_MODEL: str = "qwen3:4b"
+    INTERVIEW_OLLAMA_MODEL: str = 'qwen3:4b'
+    ROLE_SUGGESTION_OLLAMA_MODEL: str = 'qwen3:4b'
     OLLAMA_TIMEOUT: float = 120.0
     # OLLAMA_NUM_CTX: Default 4096. Hardware evaluation (R2/M8): NVIDIA RTX 4050 GPU has 6141MB VRAM
     # (5375MB free). Installed model 'qwen3:14b' weight blob is ~8.7GB, exceeding GPU VRAM.
@@ -96,12 +98,15 @@ class Settings(BaseSettings):
     CHROMA_ANONYMIZED_TELEMETRY: bool = False
     DATABASE_URL: str = ""
     DIRECT_URL: str = ""
+    # Opt-in, process-local recovery when the system cannot resolve Neon.
+    NEON_DNS_FALLBACK: bool = False
 
     # Upload folder
     UPLOAD_DIR: str = "./uploads"
 
     # Environment
     ENVIRONMENT: str = "development"
+    RUN_SCHEDULER_IN_API: bool = True
 
     # CORS -- include the standard local dev ports used by the frontend and Vite reload server.
     CORS_ORIGINS: str = ",".join(DEFAULT_CORS_ORIGINS)
@@ -253,11 +258,8 @@ class Settings(BaseSettings):
             values["LLM_PROVIDER"] = "ollama"
 
             db_url = values.get("DATABASE_URL", "")
-            if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite:///:memory:"):
-                raw_path = db_url.replace("sqlite:///", "", 1)
-                if not Path(raw_path).is_absolute():
-                    resolved_db = resolve_app_path(raw_path)
-                    values["DATABASE_URL"] = f"sqlite:///{resolved_db}"
+            if db_url and "sqlite" in db_url.lower():
+                raise ValueError("SQLite is forbidden. Configure Neon PostgreSQL.")
 
             env = (values.get("ENVIRONMENT") or "").lower()
             if env not in {"development", "dev", "test", "testing"}:

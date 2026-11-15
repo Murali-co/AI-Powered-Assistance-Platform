@@ -70,7 +70,7 @@ class AdzunaSource:
             data = response.json() or {}
             results = data.get("results") or []
         except Exception as exc:
-            print(f"  ⚠️ Adzuna scrape error: {exc}")
+            print(f"Adzuna source unavailable ({type(exc).__name__}); credentials and request URL redacted.")
             return []
 
         jobs: List[Dict[str, Any]] = []

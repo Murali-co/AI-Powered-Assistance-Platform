@@ -15,7 +15,7 @@ def _clean_content(text: str) -> str:
         return ""
     # Strip any <think>...</think> reasoning traces if output in text
     cleaned = re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
-    return cleaned if cleaned else text
+    return cleaned
 
 
 class OllamaClient:
@@ -203,8 +203,8 @@ class OllamaClient:
                 if e.response is not None and e.response.status_code in {400, 404}:
                     msg = detail or str(e)
                     raise RuntimeError(
-                        f"Ollama rejected the request for model '{cls.get_model()}': {msg}. "
-                        f"Ensure the model is available: ollama pull {cls.get_model()}"
+                        f"Ollama rejected the request for model '{payload.get('model', cls.get_model())}': {msg}. "
+                        f"Ensure the model is available: ollama pull {payload.get('model', cls.get_model())}"
                     ) from e
 
                 # 5xx server errors
@@ -241,9 +241,12 @@ class OllamaClient:
         cls, 
         prompt: str, 
         system: Optional[str] = None, 
-        format: Optional[str] = None,
+        format: Optional[str | Dict[str, Any]] = None,
         think: Optional[bool] = False,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        context_window: Optional[int] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         cls.check_context_budget(prompt, system)
 
@@ -256,16 +259,18 @@ class OllamaClient:
         messages.append({"role": "user", "content": prompt})
 
         payload: Dict[str, Any] = {
-            "model": cls.get_model(),
+            "model": model_name or cls.get_model(),
             "messages": messages,
             "stream": False,
             "options": {
-                "num_ctx": cls.get_num_ctx(),
+                "num_ctx": context_window or cls.get_num_ctx(),
                 "temperature": 0.3
             }
         }
         if format:
             payload["format"] = format  # e.g., "json"
+        if max_tokens is not None:
+            payload['options']['num_predict'] = max_tokens
         if think is not None:
             payload["think"] = think
 
@@ -306,7 +311,7 @@ class OllamaClient:
                 raise
 
             gen_payload: Dict[str, Any] = {
-                "model": cls.get_model(),
+                "model": model_name or cls.get_model(),
                 "prompt": prompt,
                 "stream": False,
                 "options": payload["options"]

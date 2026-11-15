@@ -10,6 +10,7 @@ from fastapi import FastAPI, APIRouter, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.concurrency import run_in_threadpool
 
 from typing import Dict, Any, Optional, List
@@ -72,7 +73,7 @@ async def lifespan(app: FastAPI):
     db_ready = False
     try:
         from app.db.session import check_database_connection
-        db_check = check_database_connection()
+        db_check = await run_in_threadpool(check_database_connection)
         if db_check["healthy"]:
             logger.info("✅ Database connectivity verified.")
             if not db_check["schema_ready"]:
@@ -90,13 +91,13 @@ async def lifespan(app: FastAPI):
     # 2. ChromaDB safe initialization
     try:
         from app.vector_db.chroma_client import ChromaDBClient
-        ChromaDBClient.initialize_collections()
+        await run_in_threadpool(ChromaDBClient.initialize_collections)
         logger.info("✅ ChromaDB collections verified.")
     except Exception as e:
         logger.warning(f"⚠️ ChromaDB collection initialization deferred/failed: {e}")
 
     # 3. Start APScheduler and recover background jobs when database is reachable
-    if db_ready:
+    if db_ready and settings.RUN_SCHEDULER_IN_API:
         try:
             from app.utils.bg_jobs import recover_pending_or_stale_jobs
             recover_pending_or_stale_jobs(stale_minutes=30)
@@ -108,7 +109,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"⚠️ Failed to start background scheduler on startup: {e}")
     else:
-        logger.warning("⚠️ Skipping APScheduler startup because the database is unavailable or schema is incomplete.")
+        logger.info("APScheduler startup skipped (disabled in API, or database unavailable/incomplete).")
 
     yield
 
@@ -131,8 +132,22 @@ app = FastAPI(
     title="AI-Powered-Assistance-Platform API",
     description="AI-Powered-Assistance-Platform",
     version="1.0.0",
+    docs_url=None,
     lifespan=lifespan
 )
+
+# Serve API documentation locally so CDN/DNS failures cannot blank the docs UI.
+SWAGGER_ASSETS = Path(__file__).resolve().parent.parent / 'vendor' / 'swagger'
+app.mount('/docs-assets', StaticFiles(directory=str(SWAGGER_ASSETS)), name='docs-assets')
+
+
+@app.get('/docs', include_in_schema=False)
+async def local_api_docs():
+    return get_swagger_ui_html(openapi_url='/openapi.json', title=app.title,
+        swagger_js_url='/docs-assets/swagger-ui-bundle.js',
+        swagger_css_url='/docs-assets/swagger-ui.css',
+        swagger_ui_parameters={'filter': True},
+        swagger_favicon_url='data:,')
 
 # Proxy headers support (N3)
 if getattr(settings, "TRUST_PROXY_HEADERS", False):
@@ -394,7 +409,7 @@ async def liveness_check():
 
 @app.get("/health/ready")
 @app.get("/api/health/ready")
-async def readiness_check():
+def readiness_check():
     """
     Minimal public readiness probe (M10): checks core DB readiness without disclosing
     internal connection strings, schema details, or stack traces.

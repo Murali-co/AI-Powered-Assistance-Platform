@@ -113,6 +113,7 @@ class JobFilterCriteria(BaseModel):
     job_type: Optional[str] = None  # remote, hybrid, onsite, any
 
 class JobOut(BaseModel):
+    live_verified: bool = False
     id: str
     title: str
     company: str
@@ -120,7 +121,7 @@ class JobOut(BaseModel):
     description: Optional[str] = ""
     url: Optional[str] = ""
     posted_at: Optional[str] = ""
-    posted_ts: Optional[str] = ""
+    posted_ts: Optional[float | str] = ""
     source: Optional[str] = "custom"
     match_score: Optional[float] = None
     matched_skills: Optional[List[str]] = None

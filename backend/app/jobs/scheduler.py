@@ -216,7 +216,7 @@ def _ensure_scheduler_loop():
     return loop
 
 
-async def process_resume_indexing_outbox():
+def _process_resume_indexing_outbox():
     """Poll and process pending resume indexing outbox tasks from Neon."""
     try:
         from app.db.session import SessionLocal
@@ -236,6 +236,10 @@ async def process_resume_indexing_outbox():
             db.close()
     except Exception as exc:
         logger.error("Error processing resume indexing outbox: %s", exc)
+
+
+async def process_resume_indexing_outbox():
+    await run_in_threadpool(_process_resume_indexing_outbox)
 
 
 def start_scheduler():

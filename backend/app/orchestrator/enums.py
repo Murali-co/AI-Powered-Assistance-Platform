@@ -4,6 +4,7 @@ from enum import Enum
 
 
 class TaskStatus(str, Enum):
+    PLANNED = "planned"
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"

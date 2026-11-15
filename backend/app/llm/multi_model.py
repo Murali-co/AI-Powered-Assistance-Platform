@@ -1,6 +1,6 @@
 """
 Local Model Management for AI-Powered Assistance Platform
-Enforces strict execution of approved local Ollama model (qwen3:14b only).
+Enforces strict execution of approved local Ollama model (configured canonical model only).
 External LLM calls and alternative models are strictly prohibited.
 """
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class MultiModelManager:
-    """Manages local Ollama model verification and enforces qwen3:14b restriction"""
+    """Manages local Ollama model verification and enforces the configured model policy"""
 
     @classmethod
     def get_canonical_model(cls) -> str:
@@ -24,22 +24,18 @@ class MultiModelManager:
     def is_approved_model(cls, model_name: Optional[str]) -> bool:
         """
         Verify if a given model identifier matches the canonical approved model.
-        Strictly permits only qwen3:14b (including valid tag prefixes/suffixes).
+        Strictly permits only the configured canonical model.
         """
         if not model_name:
             return False
         approved = settings.OLLAMA_MODEL.lower().strip()
         requested = model_name.lower().strip()
-        return (
-            requested == approved
-            or requested.startswith(f"{approved}:")
-            or approved.startswith(f"{requested}:")
-        )
+        return requested == approved
 
     @classmethod
     async def get_available_models(cls) -> List[Dict[str, Any]]:
         """
-        Fetch available models from local Ollama and filter strictly to the approved model (qwen3:14b).
+        Fetch available models from local Ollama and filter strictly to the approved model (configured canonical model).
         Does not fabricate models when Ollama is down and filters out any non-approved models.
         """
         try:
@@ -96,15 +92,15 @@ class MultiModelManager:
     def get_recommended_models(cls) -> Dict[str, List[Dict[str, str]]]:
         """
         Get list of recommended models.
-        Strictly returns only the approved qwen3:14b model across all operational categories.
+        Strictly returns only the configured canonical model across all operational categories.
         """
         canonical = settings.OLLAMA_MODEL
         single_approved_entry = [
             {
                 "name": canonical,
-                "description": "Privacy-Preserving Local Qwen3 14B (Canonical Approved Engine)",
-                "speed": "optimal",
-                "quality": "high",
+                "description": f"Configured local Ollama model: {canonical}",
+                "speed": "hardware-dependent",
+                "quality": "model-dependent",
                 "status": "canonical"
             }
         ]

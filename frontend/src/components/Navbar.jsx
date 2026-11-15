@@ -100,18 +100,18 @@ export const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 w-full glass-panel border-b border-dark-800 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/dashboard" className="flex items-center space-x-2">
             <span className="text-2xl">🧭</span>
-            <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <span className="block max-w-[220px] text-sm sm:text-base leading-tight font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               AI-Powered-Assistance-Platform
             </span>
           </Link>
 
           {/* Nav Links */}
-          <div className="hidden lg:flex items-center space-x-1.5">
+          <div className="hidden 2xl:flex items-center space-x-1.5">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -226,7 +226,7 @@ export const Navbar = () => {
             )}
 
             {/* Mobile menu button */}
-            <div className="flex items-center lg:hidden ml-1">
+            <div className="flex items-center 2xl:hidden ml-1">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="w-9 h-9 flex items-center justify-center rounded-xl text-dark-300 hover:text-dark-50 hover:bg-dark-900/60 border border-dark-800 transition-all duration-200"
@@ -241,7 +241,7 @@ export const Navbar = () => {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="lg:hidden px-4 pt-2 pb-4 space-y-1.5 border-t border-dark-800 bg-dark-950/95 backdrop-blur-md">
+        <div className="2xl:hidden px-4 pt-2 pb-4 space-y-1.5 border-t border-dark-800 bg-dark-950/95 backdrop-blur-md">
           {navItems.map((item) => (
             <Link
               key={item.path}

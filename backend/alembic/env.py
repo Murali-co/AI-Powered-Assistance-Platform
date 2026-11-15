@@ -56,7 +56,7 @@ else:
             raw_url = custom_url
 
 if raw_url:
-    from app.db.session import build_engine_url
+    from app.db.urls import build_engine_url
     url = build_engine_url(raw_url)
     config.set_main_option('sqlalchemy.url', url)
 
@@ -92,6 +92,9 @@ def run_migrations_online():
         prefix='sqlalchemy.',
         poolclass=pool.NullPool,
     )
+    from app.config import settings
+    from app.db.dns import configure_neon_dns
+    configure_neon_dns(connectable, settings.NEON_DNS_FALLBACK)
 
     with connectable.connect() as connection:
         # Compatibility update for legacy 0006 revision ID if present

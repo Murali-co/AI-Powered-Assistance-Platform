@@ -4,6 +4,8 @@ import socket
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
+from app.db.urls import build_engine_url, mask_database_url
+from app.db.dns import configure_neon_dns
 
 # Prefer IPv4 over unreachable IPv6 routes to prevent connection timeouts with dual-stack hosts (e.g. Neon)
 _orig_getaddrinfo = socket.getaddrinfo
@@ -16,46 +18,6 @@ def _ipv4_preferred_getaddrinfo(*args, **kwargs):
 socket.getaddrinfo = _ipv4_preferred_getaddrinfo
 
 logger = logging.getLogger(__name__)
-
-
-def mask_database_url(url: str) -> str:
-    """Mask credentials (username and password) in database URL to prevent exposing secrets in logs/errors."""
-    if not url:
-        return ""
-    # Mask username and password before '@'
-    masked = re.sub(r"://([^:@/]+):([^:@]+)@", r"://****:****@", url)
-    # Also mask any standalone password
-    masked = re.sub(r":([^:@]+)@", r":****@", masked)
-    return masked
-
-
-def build_engine_url(raw_url: str) -> str:
-    """Validate and configure Neon PostgreSQL connection string with proper driver and TLS."""
-    if not raw_url:
-        raise ValueError(
-            "DATABASE_URL is not set. Please configure DATABASE_URL for Neon PostgreSQL in your environment."
-        )
-    url = raw_url.strip()
-
-    if url.lower().startswith("sqlite"):
-        raise ValueError(
-            "SQLite is forbidden by architecture constraints. Neon PostgreSQL is the ONLY relational database."
-        )
-
-    # Prefer psycopg v3 driver if plain postgresql:// is specified
-    if url.startswith("postgresql://") and "+" not in url:
-        try:
-            import psycopg  # type: ignore
-            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-        except ImportError:
-            pass
-
-    # Ensure required TLS/SSL mode for Neon and cloud-hosted PostgreSQL instances
-    if ("neon.tech" in url or "amazonaws.com" in url) and "sslmode" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}sslmode=require"
-
-    return url
 
 
 ENGINE_URL = build_engine_url(settings.DATABASE_URL)
@@ -72,6 +34,7 @@ engine = create_engine(
     connect_args={"connect_timeout": 10},
     future=True,
 )
+configure_neon_dns(engine, settings.NEON_DNS_FALLBACK)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()

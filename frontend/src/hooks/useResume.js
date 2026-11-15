@@ -1,8 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../context/AuthContext';
+import { useJobPolling } from './useJobPolling';
 import apiClient from '../api/client';
 
 export const useResume = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const pollJobStatus = useJobPolling(user?.id);
 
   const uploadResumeMutation = useMutation({
     mutationFn: async (file) => {
@@ -24,28 +28,6 @@ export const useResume = () => {
     },
   });
 
-  // Helper to poll job status
-  const pollJobStatus = async (jobId, onComplete, onError, intervalMs = 3000) => {
-    const timer = setInterval(async () => {
-      try {
-        const response = await apiClient.get(`/jobs/${jobId}/status`);
-        const { status, result, error } = response.data;
-        
-        if (status === 'completed') {
-          clearInterval(timer);
-          onComplete(result);
-        } else if (status === 'failed') {
-          clearInterval(timer);
-          onError(error || 'Analysis failed.');
-        }
-      } catch (err) {
-        clearInterval(timer);
-        onError(err.message || 'Error polling job status.');
-      }
-    }, intervalMs);
-    
-    return () => clearInterval(timer);
-  };
 
   return {
     uploadResume: uploadResumeMutation.mutateAsync,

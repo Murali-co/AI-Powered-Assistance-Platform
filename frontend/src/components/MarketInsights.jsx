@@ -19,26 +19,31 @@ export const MarketInsights = () => {
   const [salaries, setSalaries] = useState([]);
   const [trends, setTrends] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchMarketData();
+    const controller = new AbortController();
+    fetchMarketData(controller.signal);
+    return () => controller.abort();
   }, []);
 
-  const fetchMarketData = async () => {
+  const fetchMarketData = async (signal) => {
     setIsLoading(true);
+    setError(null);
     try {
       const [skillsRes, salaryRes, trendsRes] = await Promise.all([
-        apiClient.get('/market/trending-skills'),
-        apiClient.get('/market/salary-insights'),
-        apiClient.get('/market/hiring-trends')
+        apiClient.get('/market/trending-skills', { signal }),
+        apiClient.get('/market/salary-insights', { signal }),
+        apiClient.get('/market/hiring-trends', { signal })
       ]);
+      if (signal?.aborted) return;
       setSkills(skillsRes.data);
       setSalaries(salaryRes.data);
       setTrends(trendsRes.data);
     } catch (err) {
-      console.error('Failed to retrieve market intelligence data:', err);
+      if (!signal?.aborted) setError('Market data could not be loaded. Please retry.');
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   };
 
@@ -62,6 +67,7 @@ export const MarketInsights = () => {
 
   return (
     <div className="space-y-8">
+      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
       {/* Overview stats header */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-panel border rounded-2xl p-5 space-y-2">
@@ -69,7 +75,7 @@ export const MarketInsights = () => {
           <div>
             <h4 className="text-[10px] font-bold text-dark-400 uppercase tracking-wider">Top Technology</h4>
             <p className="text-lg font-extrabold text-indigo-400 mt-0.5">
-              {skills[0]?.skill || 'Python'}
+              {skills[0]?.skill || 'No listing data'}
             </p>
           </div>
         </div>
@@ -79,7 +85,9 @@ export const MarketInsights = () => {
           <div>
             <h4 className="text-[10px] font-bold text-dark-400 uppercase tracking-wider">Median AI Salary</h4>
             <p className="text-lg font-extrabold text-pink-400 mt-0.5">
-              {formatCurrency(salaries.find(s => s.role.includes('AI'))?.median || 160000)}
+              {salaries.find(s => s.role.includes('AI'))?.median != null
+                ? formatCurrency(salaries.find(s => s.role.includes('AI')).median)
+                : 'Not available'}
             </p>
           </div>
         </div>
@@ -194,7 +202,9 @@ export const MarketInsights = () => {
               <span>💼</span>
               <span>Salary Insights by Technology Role</span>
             </h3>
-            <p className="text-[10px] text-dark-400 mt-0.5">Min, Median, and Max annual salary ranges in standard markets.</p>
+            <p className="text-[10px] text-dark-400 mt-0.5">
+              {salaries.length ? 'Salary ranges reported by listing sources.' : 'No verified salary ranges are available in the current listing sample.'}
+            </p>
           </div>
 
           <div className="w-full h-[260px] mt-4 text-[10px] font-semibold text-dark-300">
