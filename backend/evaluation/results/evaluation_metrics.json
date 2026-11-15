@@ -1,0 +1,84 @@
+{
+  "evaluation_timestamp": "2026-10-21T15:39:25Z",
+  "environment": {
+    "python_version": "3.12.3",
+    "bi_encoder_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "cross_encoder_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "ontology_version": "ESCO v1.1.2-ict",
+    "privacy_engine": "Microsoft Presidio 2.2.364"
+  },
+  "ranking_benchmarks": {
+    "Baseline_A_TFIDF_Lexical": {
+      "precision@1": 1.0,
+      "recall@1": 0.8,
+      "ndcg@1": 1.0,
+      "precision@3": 0.333,
+      "recall@3": 0.8,
+      "ndcg@3": 0.898,
+      "precision@5": 0.28,
+      "recall@5": 1.0,
+      "ndcg@5": 0.951,
+      "mrr": 1.0,
+      "avg_latency_ms": 0.14
+    },
+    "Baseline_B_BiEncoder": {
+      "precision@1": 1.0,
+      "recall@1": 0.8,
+      "ndcg@1": 1.0,
+      "precision@3": 0.467,
+      "recall@3": 1.0,
+      "ndcg@3": 0.983,
+      "precision@5": 0.28,
+      "recall@5": 1.0,
+      "ndcg@5": 0.994,
+      "mrr": 1.0,
+      "avg_latency_ms": 1352.37
+    },
+    "Baseline_C_Bi_CrossEncoder": {
+      "precision@1": 1.0,
+      "recall@1": 0.8,
+      "ndcg@1": 1.0,
+      "precision@3": 0.467,
+      "recall@3": 1.0,
+      "ndcg@3": 0.952,
+      "precision@5": 0.28,
+      "recall@5": 1.0,
+      "ndcg@5": 0.982,
+      "mrr": 1.0,
+      "avg_latency_ms": 612.59
+    },
+    "Baseline_D_AI_Platform_Full_System": {
+      "precision@1": 1.0,
+      "recall@1": 0.8,
+      "ndcg@1": 1.0,
+      "precision@3": 0.467,
+      "recall@3": 1.0,
+      "ndcg@3": 0.986,
+      "precision@5": 0.28,
+      "recall@5": 1.0,
+      "ndcg@5": 0.995,
+      "mrr": 1.0,
+      "avg_latency_ms": 13.66
+    }
+  },
+  "skill_extraction_ontology_mapping": {
+    "precision": 1.0,
+    "recall": 0.692,
+    "f1_score": 0.818,
+    "canonical_mapping_accuracy": 0.778
+  },
+  "privacy_evaluation": {
+    "pii_entities_detected": 14,
+    "pii_masking_rate_pct": 100.0,
+    "sensitive_tokens_in_outbound_prompt": 0,
+    "external_leakage_prevented": true
+  },
+  "trustworthy_generation_evaluation": {
+    "grounded_text_support_pct": 100,
+    "grounded_text_unsupported_count": 0,
+    "fabricated_detection_success": true,
+    "unsupported_claim_detected": [
+      "Boosted revenue by 95% at Google"
+    ]
+  }
+}

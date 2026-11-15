@@ -102,7 +102,7 @@ export const ResumeUpload = () => {
             <LoadingSpinner size="lg" text="" />
             <h3 className="text-lg font-bold text-dark-100 animate-pulse">Running Local AI Analysis</h3>
             <p className="text-xs text-dark-400 leading-relaxed">
-              Ollama is computing a skill-gap matrix and drafting cover letters using Qwen3:14b. This can take 10-40 seconds...
+              Local Ollama is analyzing your resume and target role. Processing time depends on your hardware and model workload.
             </p>
           </div>
         </div>

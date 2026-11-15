@@ -1,0 +1,5 @@
+Baseline,Precision@1,Recall@1,nDCG@1,Precision@3,Recall@3,nDCG@3,Precision@5,Recall@5,nDCG@5,MRR,Avg_Latency_ms
+Baseline_A_TFIDF_Lexical,1.0,0.8,1.0,0.333,0.8,0.898,0.28,1.0,0.951,1.0,0.14
+Baseline_B_BiEncoder,1.0,0.8,1.0,0.467,1.0,0.983,0.28,1.0,0.994,1.0,1352.37
+Baseline_C_Bi_CrossEncoder,1.0,0.8,1.0,0.467,1.0,0.952,0.28,1.0,0.982,1.0,612.59
+Baseline_D_AI_Platform_Full_System,1.0,0.8,1.0,0.467,1.0,0.986,0.28,1.0,0.995,1.0,13.66

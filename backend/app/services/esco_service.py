@@ -1,5 +1,5 @@
 """
-AI Powered Assistance Platform ESCO Skill Intelligence Service
+AI-Powered-Assistance-Platform ESCO Skill Intelligence Service
 Compliant with European Skills, Competences, Qualifications and Occupations (ESCO v1.1)
 Provides canonical skill normalization, alias resolution, transferable skill analysis,
 and calibrated skill-gap taxonomy mapping.

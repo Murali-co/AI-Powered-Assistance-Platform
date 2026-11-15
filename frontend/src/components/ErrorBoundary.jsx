@@ -13,7 +13,7 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo });
     // Log error to console for diagnostic purposes
-    console.error('AI Powered Assistance Platform ErrorBoundary caught an unhandled component error:', error, errorInfo);
+    console.error('AI-Powered-Assistance-Platform ErrorBoundary caught an unhandled component error:', error, errorInfo);
   }
 
   handleReset = () => {

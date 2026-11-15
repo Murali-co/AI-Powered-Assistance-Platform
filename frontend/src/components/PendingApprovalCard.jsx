@@ -13,7 +13,7 @@ export const PendingApprovalCard = ({ workflowId, pendingTask, onActionComplete 
       await apiClient.post(`/orchestrator/workflows/${workflowId}/approve`, {
         task_id: pendingTask.task_id
       });
-      toast.success('External action approved! Resuming workflow...');
+      toast.success('Action approved and workflow updated.');
       if (onActionComplete) onActionComplete(workflowId, 'approved');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to approve task.');
@@ -44,15 +44,15 @@ export const PendingApprovalCard = ({ workflowId, pendingTask, onActionComplete 
           <span className="text-xl animate-bounce">✋</span>
           <div>
             <h3 className="text-sm font-bold text-amber-200">
-              Human-in-the-Loop Approval Required
+              Workflow Approval Required
             </h3>
             <p className="text-[11px] text-amber-400/80">
-              The agent wants to perform an external action with real-world side effects.
+              Review this action and its inputs before allowing the workflow to continue.
             </p>
           </div>
         </div>
         <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 tracking-wider">
-          External Action
+          Review Required
         </span>
       </div>
 

@@ -122,7 +122,7 @@ export const ApplyAssistant = () => {
         job_url: job.job_url,
         cover_letter: coverLetter,
         resume_bullets: resumeBullets,
-        notes: notes || 'Applied via AI Powered Assistance Platform',
+        notes: notes || 'Applied via AI-Powered-Assistance-Platform',
         tone,
         resume_version_id: selectedVersion || undefined,
       });

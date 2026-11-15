@@ -1,19 +1,17 @@
+from __future__ import annotations
+
 from enum import Enum
 
-class WorkflowState(str, Enum):
-    PENDING = "PENDING"
-    PLANNING = "PLANNING"
-    RUNNING = "RUNNING"
-    AWAITING_APPROVAL = "AWAITING_APPROVAL"
-    WAITING = "WAITING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
 
-class TaskState(str, Enum):
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    AWAITING_APPROVAL = "AWAITING_APPROVAL"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class StepType(str, Enum):
+    ANALYZE = "analyze"
+    PLAN = "plan"
+    EXECUTE = "execute"
+    VERIFY = "verify"

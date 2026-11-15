@@ -7,7 +7,7 @@ from presidio_anonymizer.entities import OperatorConfig
 
 class PrivacyPreservingEngine:
     """
-    AI Powered Assistance Platform Privacy Preservation Engine:
+    AI-Powered-Assistance-Platform Privacy Preservation Engine:
     - Leverages Microsoft Presidio Analyzer & Anonymizer
     - Enforces local vs external consent boundaries
     - Masks PII (names, contact info, locations, identifiers) before any external processing

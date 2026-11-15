@@ -83,7 +83,7 @@ export const VerifyEmail = () => {
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-3 border-indigo-500 border-t-transparent"></div>
             <h2 className="text-xl font-bold text-white">Verifying Your Email...</h2>
-            <p className="text-slate-400 text-sm">Validating your security token with AI Powered Assistance Platform services.</p>
+            <p className="text-slate-400 text-sm">Validating your security token with AI-Powered-Assistance-Platform services.</p>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@ export const VerifyEmail = () => {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Email Verified!</h2>
           <p className="text-slate-300 text-sm mb-2 leading-relaxed">
-            Your email address has been successfully verified. You can now access your full AI Powered Assistance Platform account.
+            Your email address has been successfully verified. You can now access your full AI-Powered-Assistance-Platform account.
           </p>
           <p className="text-slate-400 text-xs mb-6">Redirecting you to login in a few seconds...</p>
           <button
@@ -186,7 +186,7 @@ export const VerifyEmail = () => {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Confirm Email Verification</h2>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-          Click the button below to complete your email verification and activate your AI Powered Assistance Platform account.
+          Click the button below to complete your email verification and activate your AI-Powered-Assistance-Platform account.
         </p>
         <div className="flex flex-col gap-3">
           <button

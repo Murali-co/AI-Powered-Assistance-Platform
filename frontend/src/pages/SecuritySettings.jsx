@@ -341,7 +341,7 @@ export const SecuritySettings = () => {
               <span>Active Sessions & Devices</span>
             </h2>
             <p className="text-xs text-dark-400 mt-1">
-              Devices currently logged into your AI Powered Assistance Platform account.
+              Devices currently logged into your AI-Powered-Assistance-Platform account.
             </p>
           </div>
           {sessions.length > 1 && (

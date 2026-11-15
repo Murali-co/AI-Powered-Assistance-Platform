@@ -16,7 +16,7 @@ export const Landing = () => {
         {/* Badge */}
         <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-950/20 text-indigo-400 text-xs font-bold tracking-wide animate-pulse">
           <span>🔒</span>
-          <span>100% Local, Private Career Intelligence</span>
+          <span>Local AI Career Intelligence</span>
         </div>
 
         {/* Hero title */}
@@ -24,11 +24,11 @@ export const Landing = () => {
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.1]">
             Your AI-Powered Career Copilot
             <span className="block mt-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              AI Powered Assistance Platform
+              AI-Powered-Assistance-Platform
             </span>
           </h1>
           <p className="max-w-xl mx-auto text-dark-300 text-base sm:text-lg font-medium leading-relaxed">
-            Extract skills securely, analyze job gaps, scrape matching local jobs, and draft highly tailored applications. All computed privately on your machine.
+            Extract skills, analyze job gaps, find matching jobs, and draft tailored applications. AI runs locally; account and career records are stored securely in Neon PostgreSQL.
           </p>
         </div>
 
@@ -65,7 +65,7 @@ export const Landing = () => {
             <div className="text-2xl mb-3">🛡️</div>
             <h3 className="text-lg font-bold text-dark-100 mb-1.5">Phase 1: Local Intelligence</h3>
             <p className="text-xs text-dark-400 leading-relaxed">
-              Upload resume documents safely. The text parser extracts semantic structures, parses skill competencies, and highlights missing gaps using Qwen3:14b running locally on your hardware.
+              Upload a resume, review extracted skills, and analyze gaps for your target role with your configured local Ollama model.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export const Landing = () => {
             <div className="text-2xl mb-3">⚡</div>
             <h3 className="text-lg font-bold text-dark-100 mb-1.5">Phase 2: Market Matcher</h3>
             <p className="text-xs text-dark-400 leading-relaxed">
-              Retrieve real-time jobs scraped from LinkedIn, Indeed, and Glassdoor. Compute similarity matrices natively inside ChromaDB vectors to find perfect listings, and customize resume copy instantly.
+              Search recent listings from supported public job boards, compare roles with your resume using ChromaDB vector search, and prepare targeted application materials.
             </p>
           </div>
         </div>

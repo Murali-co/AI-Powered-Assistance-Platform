@@ -1,0 +1,13 @@
+Category,Metric,Value
+Skill_Extraction_ESCO,precision,1.0
+Skill_Extraction_ESCO,recall,0.692
+Skill_Extraction_ESCO,f1_score,0.818
+Skill_Extraction_ESCO,canonical_mapping_accuracy,0.778
+Privacy_Preservation,pii_entities_detected,14
+Privacy_Preservation,pii_masking_rate_pct,100.0
+Privacy_Preservation,sensitive_tokens_in_outbound_prompt,0
+Privacy_Preservation,external_leakage_prevented,True
+Trustworthy_Generation,grounded_text_support_pct,100
+Trustworthy_Generation,grounded_text_unsupported_count,0
+Trustworthy_Generation,fabricated_detection_success,True
+Trustworthy_Generation,unsupported_claim_detected,['Boosted revenue by 95% at Google']

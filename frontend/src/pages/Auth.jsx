@@ -109,7 +109,7 @@ export const Auth = () => {
       setSubmitting(true);
       try {
         const res = await register(email, password, fullName);
-        toast.success(res?.message || 'Registration successful! Welcome to AI Powered Assistance Platform.');
+        toast.success(res?.message || 'Registration successful! Welcome to AI-Powered-Assistance-Platform.');
         if (res?.verification_link) {
           setVerificationLink(res.verification_link);
         }

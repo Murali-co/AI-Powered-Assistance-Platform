@@ -19,6 +19,7 @@ export const InterviewCoach = () => {
 
   // Active Session State
   const [session, setSession] = useState(null);
+  const answerAttemptRef = useRef(null);
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingStart, setIsGeneratingStart] = useState(false);
@@ -53,8 +54,9 @@ export const InterviewCoach = () => {
       recognition.onresult = (event) => {
         let currentTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
+          if (event.results[i].isFinal) currentTranscript += event.results[i][0].transcript;
         }
+        if (!currentTranscript.trim()) return;
         setAnswer(prev => prev ? `${prev} ${currentTranscript.trim()}` : currentTranscript.trim());
       };
 
@@ -72,6 +74,16 @@ export const InterviewCoach = () => {
 
       recognitionRef.current = recognition;
     }
+    return () => {
+      const recognition = recognitionRef.current;
+      if (recognition) {
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        recognition.abort();
+      }
+      window.speechSynthesis?.cancel();
+    };
   }, []);
 
   // Restore active session across page refresh
@@ -202,10 +214,16 @@ export const InterviewCoach = () => {
 
     setIsSubmitting(true);
     try {
+      const attempt = answerAttemptRef.current;
+      if (!attempt || attempt.sessionId !== session.session_id || attempt.index !== session.question_index || attempt.answer !== answer.trim()) {
+        answerAttemptRef.current = { sessionId: session.session_id, index: session.question_index, answer: answer.trim(), requestId: crypto.randomUUID() };
+      }
       const res = await apiClient.post('/interview/answer', {
         session_id: session.session_id,
-        answer: answer.trim()
-      });
+        answer: answer.trim(),
+        question_index: session.question_index,
+        request_id: answerAttemptRef.current.requestId,
+      }, { timeout: 300000 });
 
       const data = res.data;
       setTurnFeedback({
@@ -319,9 +337,9 @@ export const InterviewCoach = () => {
           </p>
         </div>
         <div className="flex items-center space-x-2 text-[10px] font-semibold bg-indigo-950/40 border border-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full">
-          <span>🔒 Privacy Preserved</span>
+          <span>Local AI</span>
           <span>•</span>
-          <span>Local Voice Support</span>
+          <span>Browser Voice Support</span>
         </div>
       </div>
 
@@ -507,7 +525,7 @@ export const InterviewCoach = () => {
                   <button
                     onClick={() => handleSpeakQuestion(session.question)}
                     className="text-[11px] font-semibold text-dark-400 hover:text-indigo-400 flex items-center space-x-1"
-                    title="Read question aloud (Local Browser Synthesis)"
+                    title="Read question aloud using browser speech synthesis"
                   >
                     <span>{isSpeaking ? '⏹️ Stop Audio' : '🔊 Listen'}</span>
                   </button>
@@ -572,7 +590,7 @@ export const InterviewCoach = () => {
 
                 {voiceSupported && (
                   <p className="text-[10px] text-dark-400">
-                    Voice processed locally via browser Web Speech API. Audio is not saved or transmitted to external servers.
+                    Speech recognition is provided by your browser; processing location depends on its configuration. Typed answers use local Ollama.
                   </p>
                 )}
               </div>

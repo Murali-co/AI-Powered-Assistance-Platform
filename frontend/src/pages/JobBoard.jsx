@@ -25,6 +25,7 @@ const LOCATION_OPTIONS = [
 const AGE_OPTIONS = [
   { value: 24, label: 'Last 24 Hours' },
   { value: 48, label: 'Last 48 Hours' },
+  { value: 96, label: 'Last 4 Days' },
   { value: 168, label: 'Last 7 Days' },
   { value: 720, label: 'Last 30 Days' },
 ];
@@ -39,7 +40,7 @@ export const JobBoard = () => {
   // 1. State hooks declared first to ensure variables like hoursOld are initialized before hook consumption
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('Any');
-  const [hoursOld, setHoursOld] = useState(48);
+  const [hoursOld, setHoursOld] = useState(168);
   const [jobTypeFilters, setJobTypeFilters] = useState({
     remote: true,
     hybrid: true,
@@ -49,6 +50,8 @@ export const JobBoard = () => {
   const [lastScrapeTime, setLastScrapeTime] = useState(null);
   const [scrapeError, setScrapeError] = useState(null);
   const pollingCleanupRef = useRef(null);
+  const criteriaInitializedRef = useRef(false);
+  const formEditedRef = useRef(false);
 
   // 2. Custom jobs hook consumed with initialized hoursOld state
   const {
@@ -63,7 +66,7 @@ export const JobBoard = () => {
     isFetchingJobs,
     pollJobStatus,
     saveJob,
-  } = useJobs({ hoursOld });
+  } = useJobs({ hoursOld, title, location, includeMatches: false });
 
   // Cancel any active polling timer when component unmounts
   useEffect(() => {
@@ -77,7 +80,8 @@ export const JobBoard = () => {
 
   // Sync criteria on load
   useEffect(() => {
-    if (criteria) {
+    if (criteria && !criteriaInitializedRef.current && !formEditedRef.current) {
+      criteriaInitializedRef.current = true;
       setTitle(criteria.title || '');
       setLocation(criteria.location || 'Any');
       setHoursOld(criteria.hours_old || 48);
@@ -116,6 +120,7 @@ export const JobBoard = () => {
   };
 
   const handleToggleJobType = (type) => {
+    formEditedRef.current = true;
     setJobTypeFilters(prev => ({ ...prev, [type]: !prev[type] }));
   };
 
@@ -204,8 +209,9 @@ export const JobBoard = () => {
     (job) => job.bucket === 'matched' || Number(job.match_score || 0) >= 70
   );
   const skillGapJobs = filteredJobs.filter(
-    (job) => job.bucket !== 'matched' && Number(job.match_score || 0) < 70
+    (job) => job.match_score != null && job.bucket !== 'matched' && Number(job.match_score) < 70
   );
+  const unscoredJobs = filteredJobs.filter(job => job.match_score == null);
 
   const renderJobSection = (label, items, accentClass) => {
     if (!Array.isArray(items) || items.length === 0) return null;
@@ -297,11 +303,12 @@ export const JobBoard = () => {
             <form onSubmit={handleSaveCriteria} className="space-y-4 text-xs">
               {/* Job Title */}
               <div>
-                <label className="block text-xs font-semibold text-dark-300 mb-1.5">Job Title Keywords</label>
+                <label htmlFor="job-search-title" className="block text-xs font-semibold text-dark-300 mb-1.5">Job Title Keywords</label>
                 <input
                   type="text"
+                  id="job-search-title"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => { formEditedRef.current = true; setTitle(e.target.value); }}
                   className="w-full px-3 py-2 bg-dark-950 border border-dark-800 focus:border-indigo-500/40 rounded-xl text-dark-100 focus:outline-none transition-all"
                   placeholder="e.g. Software Engineer, React"
                 />
@@ -309,10 +316,11 @@ export const JobBoard = () => {
 
               {/* Preferred Location — Dropdown */}
               <div>
-                <label className="block text-xs font-semibold text-dark-300 mb-1.5">Preferred Location</label>
+                <label htmlFor="job-search-location" className="block text-xs font-semibold text-dark-300 mb-1.5">Preferred Location</label>
                 <select
+                  id="job-search-location"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => { formEditedRef.current = true; setLocation(e.target.value); }}
                   className="w-full px-3 py-2 bg-dark-950 border border-dark-800 focus:border-indigo-500/40 rounded-xl text-dark-100 focus:outline-none transition-all appearance-none cursor-pointer"
                 >
                   {LOCATION_OPTIONS.map(opt => (
@@ -323,10 +331,11 @@ export const JobBoard = () => {
 
               {/* Job Age Filter */}
               <div>
-                <label className="block text-xs font-semibold text-dark-300 mb-1.5">Job Posting Age</label>
+                <label htmlFor="job-posting-age" className="block text-xs font-semibold text-dark-300 mb-1.5">Job Posting Age</label>
                 <select
+                  id="job-posting-age"
                   value={hoursOld}
-                  onChange={(e) => setHoursOld(Number(e.target.value))}
+                  onChange={(e) => { formEditedRef.current = true; setHoursOld(Number(e.target.value)); }}
                   className="w-full px-3 py-2 bg-dark-950 border border-dark-800 focus:border-indigo-500/40 rounded-xl text-dark-100 focus:outline-none transition-all appearance-none cursor-pointer"
                 >
                   {AGE_OPTIONS.map(opt => (
@@ -416,6 +425,7 @@ export const JobBoard = () => {
             </div>
           ) : filteredJobs.length > 0 ? (
             <div className="space-y-6">
+              {renderJobSection('Live Listings — Not Yet Matched', unscoredJobs, 'bg-indigo-500')}
               {renderJobSection('Strong Matches', matchedJobs, 'bg-emerald-500')}
               {renderJobSection('Skill Gap Roles', skillGapJobs, 'bg-amber-500')}
             </div>

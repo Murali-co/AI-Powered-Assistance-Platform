@@ -437,8 +437,8 @@ export const Dashboard = () => {
             <div className="glass-panel border border-dark-800 rounded-2xl p-6 space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-sm font-bold text-dark-100">Recommended Jobs & ESCO Match Breakdown</h3>
-                  <p className="text-[11px] text-dark-400">Two-stage semantic retrieval and canonical skill overlap analysis</p>
+                  <h3 className="text-sm font-bold text-dark-100">Recent Jobs & Skill Coverage</h3>
+                  <p className="text-[11px] text-dark-400">Dated public listings from the past week. Skill coverage appears when requirements are available.</p>
                 </div>
                 <button
                   onClick={() => navigate('/match')}
@@ -457,7 +457,7 @@ export const Dashboard = () => {
                         <p className="text-[10px] text-dark-400">{job.company} • {job.location || 'Remote'}</p>
                       </div>
                       <span className="text-xs font-extrabold px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-500/20 rounded-md">
-                        {job.match_score}% Match
+                        {job.match_score == null ? 'Not yet scored' : `${job.match_score}% skill coverage`}
                       </span>
                     </div>
 

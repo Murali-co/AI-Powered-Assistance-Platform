@@ -35,7 +35,7 @@ export const VerificationSuccess = () => {
             🎉 Congratulations! Your email has been successfully verified.
           </p>
           <p className="text-slate-500 mb-6">
-            You can now log in to your AI Powered Assistance Platform account and start your job search journey.
+            You can now log in to your AI-Powered-Assistance-Platform account and start your job search journey.
           </p>
 
           {/* Features */}

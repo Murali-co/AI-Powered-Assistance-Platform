@@ -1,21 +1,16 @@
-from enum import Enum
+from __future__ import annotations
 
-class ToolPermission(str, Enum):
-    READ = "READ"
-    EXECUTE = "EXECUTE"
-    ADMIN = "ADMIN"
+from typing import Iterable, Set
 
-def has_tool_permission(user_dict: dict, required_permission: ToolPermission) -> bool:
-    """
-    Checks if a user has sufficient permission to execute a tool.
-    ADMIN permission requires is_admin=True on user.
-    READ and EXECUTE permissions are granted to authenticated users.
-    """
-    if not user_dict:
-        return False
 
-    if required_permission == ToolPermission.ADMIN:
-        return bool(user_dict.get("is_admin", False))
+class PermissionManager:
+    """Stores the permitted tool actions for a session or actor."""
 
-    # All authenticated users have READ and EXECUTE permissions
-    return True
+    def __init__(self, allowed: Iterable[str] | None = None) -> None:
+        self.allowed: Set[str] = set(allowed or [])
+
+    def can_run(self, tool_name: str, required: Iterable[str] | None = None) -> bool:
+        required_set = set(required or [])
+        if not required_set:
+            return True
+        return required_set.issubset(self.allowed)

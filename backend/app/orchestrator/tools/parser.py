@@ -1,63 +1,24 @@
-import json
-import re
-from typing import Dict, Any
-from app.orchestrator.tools.schemas import LLMToolCallPayload
-from app.orchestrator.tools.exceptions import MalformedToolRequestError
+from __future__ import annotations
 
-class LLMToolParser:
-    """
-    Parses LLM text output into structured LLMToolCallPayload instances.
-    Safely handles markdown wrapping, extra whitespace, or malformed JSON payloads.
-    """
+from typing import Any, Dict
 
-    @classmethod
-    def parse_tool_call(cls, raw_llm_output: str) -> LLMToolCallPayload:
-        if not raw_llm_output or not raw_llm_output.strip():
-            raise MalformedToolRequestError(raw_input=raw_llm_output or "", reason="LLM output is empty.")
 
-        cleaned = raw_llm_output.strip()
+class ToolCallParser:
+    """Very small parser for tool instructions."""
 
-        # Remove code block formatting
-        if "```" in cleaned:
-            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE)
-            if match:
-                cleaned = match.group(1).strip()
-            else:
-                cleaned = re.sub(r"^```(?:json)?\n", "", cleaned)
-                cleaned = re.sub(r"\n```$", "", cleaned)
-                cleaned = cleaned.strip()
-
-        try:
-            data = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            # Fallback regex search for JSON object
-            json_match = re.search(r"\{[\s\S]*\}", cleaned)
-            if json_match:
-                try:
-                    data = json.loads(json_match.group(0))
-                except json.JSONDecodeError:
-                    raise MalformedToolRequestError(raw_input=raw_llm_output, reason=f"Invalid JSON syntax: {e}")
-            else:
-                raise MalformedToolRequestError(raw_input=raw_llm_output, reason=f"Could not parse JSON object from output: {e}")
-
-        if not isinstance(data, dict):
-            raise MalformedToolRequestError(raw_input=raw_llm_output, reason="JSON output is not a dictionary.")
-
-        if "tool_name" not in data:
-            # Check common key aliases e.g. "name", "tool"
-            if "name" in data:
-                data["tool_name"] = data.pop("name")
-            elif "tool" in data:
-                data["tool_name"] = data.pop("tool")
-            else:
-                raise MalformedToolRequestError(raw_input=raw_llm_output, reason="Missing required 'tool_name' field.")
-
-        if "arguments" not in data and "args" in data:
-            data["arguments"] = data.pop("args")
-        elif "arguments" not in data and "input" in data:
-            data["arguments"] = data.pop("input")
-
-        try:
-            return LLMToolCallPayload(**data)
-        except Exception as ve:
-            raise MalformedToolRequestError(raw_input=raw_llm_output, reason=f"Validation failed for tool payload: {ve}")
+    @staticmethod
+    def parse(raw: str) -> Dict[str, Any]:
+        cleaned = (raw or "").strip()
+        if not cleaned:
+            return {"name": "", "arguments": {}}
+        if "(" in cleaned and cleaned.endswith(")"):
+            name, args = cleaned.split("(", 1)
+            args = args[:-1]
+            pieces = [part.strip() for part in args.split(",") if part.strip()]
+            payload: Dict[str, Any] = {}
+            for piece in pieces:
+                if "=" in piece:
+                    key, value = piece.split("=", 1)
+                    payload[key.strip()] = value.strip().strip("\"'")
+            return {"name": name.strip(), "arguments": payload}
+        return {"name": cleaned, "arguments": {}}

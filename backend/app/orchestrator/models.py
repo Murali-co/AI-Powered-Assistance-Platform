@@ -1,31 +1,36 @@
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, func
-from app.db.session import Base
+from __future__ import annotations
 
-class WorkflowModel(Base):
-    __tablename__ = "workflows"
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
-    id = Column(String, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    goal = Column(Text, nullable=False)
-    status = Column(String, nullable=False, default="PENDING")
-    error = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+from .enums import TaskStatus
 
 
-class WorkflowTaskModel(Base):
-    __tablename__ = "workflow_tasks"
+@dataclass
+class PlanStep:
+    name: str
+    description: str
+    status: TaskStatus = TaskStatus.PENDING
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-    id = Column(String, primary_key=True, index=True)
-    task_id = Column(String, nullable=False, index=True)
-    workflow_id = Column(String, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True)
-    task_type = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    status = Column(String, nullable=False, default="PENDING")
-    input_json = Column(Text, nullable=True)
-    output_json = Column(Text, nullable=True)
-    dependencies_json = Column(Text, nullable=True)
-    error = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+@dataclass
+class TaskPlan:
+    task_id: str
+    title: str
+    steps: List[PlanStep] = field(default_factory=list)
+
+
+@dataclass
+class Task:
+    task_id: str
+    prompt: str
+    context: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TaskResult:
+    task_id: str
+    status: TaskStatus
+    summary: str
+    details: Dict[str, Any] = field(default_factory=dict)

@@ -1,0 +1,79 @@
+{
+  "time": "2026-11-15T16:40:13.922806+00:00",
+  "source_fingerprint": "bc6e56bb5dfdb84995100d223bc20852c51599eee58966f1c04efad69df6fc68",
+  "checks": [
+    {
+      "name": "backend-unit",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 5.58,
+      "log": "qa_tests/results/backend-unit.log"
+    },
+    {
+      "name": "python-static",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 0.03,
+      "log": "qa_tests/results/python-static.log"
+    },
+    {
+      "name": "python-dependencies",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 0.36,
+      "log": "qa_tests/results/python-dependencies.log"
+    },
+    {
+      "name": "frontend-lint",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 1.07,
+      "log": "qa_tests/results/frontend-lint.log"
+    },
+    {
+      "name": "frontend-unit",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 0.62,
+      "log": "qa_tests/results/frontend-unit.log"
+    },
+    {
+      "name": "frontend-build",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 3.42,
+      "log": "qa_tests/results/frontend-build.log"
+    },
+    {
+      "name": "frontend-audit",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 1.27,
+      "log": "qa_tests/results/frontend-audit.log"
+    },
+    {
+      "name": "compose-config",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 0.12,
+      "log": "qa_tests/results/compose-config.log"
+    },
+    {
+      "name": "whitespace",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 0.03,
+      "log": "qa_tests/results/whitespace.log"
+    },
+    {
+      "name": "running-services",
+      "status": "PASSED",
+      "returncode": 0,
+      "seconds": 4.08,
+      "log": "qa_tests/results/running-services.log"
+    }
+  ],
+  "source_changed_during_checks": false,
+  "all_selected_checks_passed": true,
+  "entire_project_verified": false
+}
