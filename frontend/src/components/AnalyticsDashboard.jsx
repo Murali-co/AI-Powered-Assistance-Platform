@@ -18,25 +18,29 @@ import {
   AreaChart,
 } from 'recharts';
 import client from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const AnalyticsDashboard = () => {
+  const { user } = useAuth();
 
-  // Fetch dashboard data
+  // Fetch dashboard data scoped by user
   const { data: dashboardData, isLoading } = useQuery({
-    queryKey: ['analyticsDashboard'],
+    queryKey: ['analyticsDashboard', user?.id],
     queryFn: async () => {
       const response = await client.get('/analytics/dashboard');
       return response.data;
     },
+    enabled: !!user?.id,
   });
 
-  // Fetch conversion funnel
+  // Fetch conversion funnel scoped by user
   const { data: funnelData } = useQuery({
-    queryKey: ['conversionFunnel'],
+    queryKey: ['conversionFunnel', user?.id],
     queryFn: async () => {
       const response = await client.get('/analytics/conversion-funnel');
       return response.data;
     },
+    enabled: !!user?.id,
   });
 
   if (isLoading) {

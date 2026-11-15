@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import client from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const ApplicationKanban = () => {
+  const { user } = useAuth();
   const [applications, setApplications] = useState({
     applied: [],
     interview_scheduled: [],
@@ -11,13 +13,14 @@ const ApplicationKanban = () => {
   });
   const [draggedItem, setDraggedItem] = useState(null);
 
-  // Fetch all applications
+  // Fetch all applications scoped by user
   const { data: appData } = useQuery({
-    queryKey: ['applications'],
+    queryKey: ['applications', user?.id],
     queryFn: async () => {
       const response = await client.get('/apply/history');
       return response.data;
     },
+    enabled: !!user?.id,
   });
 
   // Update application status mutation

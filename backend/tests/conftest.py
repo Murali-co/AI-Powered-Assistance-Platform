@@ -9,6 +9,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from unittest.mock import MagicMock
 from sqlalchemy import text
 
+import socket
+_orig_getaddrinfo = socket.getaddrinfo
+def _ipv4_preferred_getaddrinfo(*args, **kwargs):
+    res = _orig_getaddrinfo(*args, **kwargs)
+    v4 = [r for r in res if r[0] == socket.AF_INET]
+    return v4 if v4 else res
+socket.getaddrinfo = _ipv4_preferred_getaddrinfo
+
 # Set mock environment variables BEFORE any imports or dotenv
 os.environ["TESTING"] = "true"
 os.environ["ENVIRONMENT"] = "testing"

@@ -9,7 +9,7 @@ from app.db.session import engine
 
 
 def test_auth_complete_lifecycle(client: TestClient):
-    test_email = "e2e_verify_user@ai-powered-assistance-platform.local"
+    test_email = "e2e_verify_user@ai-powered-assistance-platform.example.com"
     test_password = "SecurePassword123!"
     test_name = "E2E Verified Candidate"
 
@@ -75,7 +75,7 @@ def test_auth_complete_lifecycle(client: TestClient):
 
     # Also test case-insensitive login (e.g. capitalized email)
     login_upper = client.post("/auth/login", json={
-        "email": "E2E_VERIFY_USER@AI-POWERED-ASSISTANCE-PLATFORM.LOCAL",
+        "email": "E2E_VERIFY_USER@AI-POWERED-ASSISTANCE-PLATFORM.EXAMPLE.COM",
         "password": test_password
     })
     assert login_upper.status_code == 200, "Case-insensitive login failed"

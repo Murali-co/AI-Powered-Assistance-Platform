@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import apiClient, { setAccessToken, clearAccessToken } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -18,6 +19,7 @@ const formatAuthError = (error, defaultMsg) => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Restore session on mount
   useEffect(() => {
@@ -105,6 +107,31 @@ export const AuthProvider = ({ children }) => {
     } finally {
       clearAccessToken();
       setUser(null);
+      try {
+        queryClient.cancelQueries();
+        queryClient.clear();
+      } catch (e) {
+        // Safe fallback if queryClient unmounted
+        void e;
+      }
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('ai_powered_assistance_platform_active_interview_session');
+          sessionStorage.removeItem('active_interview_session');
+          sessionStorage.removeItem('auth_redirect_target');
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith('draft_') || k.startsWith('interview_') || k.includes('ai_powered_assistance_platform'))) {
+              keysToRemove.push(k);
+            }
+          }
+          keysToRemove.forEach(k => localStorage.removeItem(k));
+        }
+      } catch (e) {
+        // Safe fallback for restricted storage environments
+        void e;
+      }
     }
   };
 

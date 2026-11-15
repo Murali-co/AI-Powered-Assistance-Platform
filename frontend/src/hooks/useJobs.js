@@ -1,12 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export const useJobs = ({ hoursOld = 48 } = {}) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   // 1. Get raw/filtered job list
   const jobsQuery = useQuery({
-    queryKey: ['jobs', hoursOld],
+    queryKey: ['jobs', userId, hoursOld],
     queryFn: async ({ signal }) => {
       const response = await apiClient.get('/jobs/list', {
         params: { hours_old: hoursOld },
@@ -17,11 +20,12 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       if (Array.isArray(data)) return data;
       return [];
     },
+    enabled: !!userId,
   });
 
   // 2. Get matched jobs
   const matchedJobsQuery = useQuery({
-    queryKey: ['matchedJobs', hoursOld],
+    queryKey: ['matchedJobs', userId, hoursOld],
     queryFn: async ({ signal }) => {
       const response = await apiClient.post('/jobs/match', null, {
         params: { hours_old: hoursOld },
@@ -32,15 +36,17 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       if (Array.isArray(data)) return data;
       return [];
     },
+    enabled: !!userId,
   });
 
   // 3. Get filter criteria
   const criteriaQuery = useQuery({
-    queryKey: ['criteria'],
+    queryKey: ['criteria', userId],
     queryFn: async () => {
       const response = await apiClient.get('/jobs/criteria');
       return response.data;
     },
+    enabled: !!userId,
   });
 
   // 4. Save filter criteria mutation
@@ -50,9 +56,9 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['criteria'] });
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['matchedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['criteria', userId] });
+      queryClient.invalidateQueries({ queryKey: ['jobs', userId] });
+      queryClient.invalidateQueries({ queryKey: ['matchedJobs', userId] });
     },
   });
 
@@ -84,26 +90,28 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appHistory'] });
+      queryClient.invalidateQueries({ queryKey: ['appHistory', userId] });
     },
   });
 
   // 8. Application history list
   const historyQuery = useQuery({
-    queryKey: ['appHistory'],
+    queryKey: ['appHistory', userId],
     queryFn: async () => {
       const response = await apiClient.get('/apply/history');
       return response.data;
     },
+    enabled: !!userId,
   });
 
   // 9. Saved jobs list
   const savedJobsQuery = useQuery({
-    queryKey: ['savedJobs'],
+    queryKey: ['savedJobs', userId],
     queryFn: async () => {
       const response = await apiClient.get('/jobs/saved/list');
       return response.data;
     },
+    enabled: !!userId,
   });
 
   // 10. Save job mutation
@@ -113,7 +121,7 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['savedJobs', userId] });
     },
   });
 
@@ -124,7 +132,7 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['savedJobs', userId] });
     },
   });
 
@@ -138,7 +146,7 @@ export const useJobs = ({ hoursOld = 48 } = {}) => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['savedJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['savedJobs', userId] });
     },
   });
 

@@ -46,6 +46,8 @@ class User(Base):
     # Orchestrator preferences
     auto_approve_external_actions = Column(Boolean, nullable=False, default=False, server_default='false')
     
+    # Revocable session/token version
+    token_version = Column(Integer, nullable=False, default=1, server_default='1')
 
 
 

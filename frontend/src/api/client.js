@@ -88,6 +88,12 @@ let inMemoryAccessToken = null;
 
 export const setAccessToken = (token) => {
   inMemoryAccessToken = token || null;
+  if (token) {
+    apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete apiClient.defaults.headers.common.Authorization;
+    delete apiClient.defaults.headers.common.authorization;
+  }
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
   }
@@ -97,9 +103,12 @@ export const getAccessToken = () => inMemoryAccessToken;
 
 export const clearAccessToken = () => {
   inMemoryAccessToken = null;
+  delete apiClient.defaults.headers.common.Authorization;
+  delete apiClient.defaults.headers.common.authorization;
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
   }
+  processQueue(new Error('Session terminated'));
 };
 
 apiClient.interceptors.request.use(
@@ -199,11 +208,12 @@ apiClient.interceptors.response.use(
 
     try {
       const csrfToken = getCookie('csrf_token');
-      // Direct unintercepted axios call to prevent circular interceptor loops
+      // Direct unintercepted axios call to prevent circular interceptor loops with strict 10s deadline
       const refreshResponse = await axios.post(
         `${API_URL}/auth/refresh`,
         {},
         {
+          timeout: 10000,
           withCredentials: true,
           headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
         }
@@ -212,7 +222,6 @@ apiClient.interceptors.response.use(
       const newToken = refreshResponse.data?.access_token;
       if (newToken) {
         setAccessToken(newToken);
-        apiClient.defaults.headers.common.Authorization = `Bearer ${newToken}`;
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
       }
 

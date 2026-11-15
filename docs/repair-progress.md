@@ -229,3 +229,90 @@ All 92 cached `.pyc` files located in `backend/app/**/__pycache__/*.cpython-312.
 - **Python Static Analysis:**
   - `.venv/bin/ruff check --select E9,F63,F7,F82 backend/app backend/alembic backend/tests`: PASSED (0 errors)
 - **Resolved Audit Defect Codes:** **F005, F015, F026, F030, F031, F032, F060**
+
+---
+
+## Phase 3: Neon Relational Repositories, Token Versioning, Concurrent Replay Protection & Account Lifecycle
+**Date:** November 15, 2026  
+**Status:** COMPLETE (Gate Passed)  
+**Branch:** `repair/ai-powered-assistance-platform`  
+**Checkpoint:** `checkpoint/phase-3-auth-lifecycle`
+
+### 1. Alembic Migration & Token Versioning (F045)
+- **Alembic Migration `0019_add_token_version_to_users`:**
+  - Added `token_version = Column(Integer, nullable=False, server_default='1', default=1)` to `users` table in Neon PostgreSQL.
+  - Head verified at `0019_add_token_version_to_users (head)`.
+- **JWT Binding to Revocable Neon State:**
+  - `create_access_token` embeds user's current `token_version` into JWT payload.
+  - `get_current_user` verifies `payload.get("token_version") == user.get("token_version", 1)`. If mismatched or missing, raises HTTP 401 ("Token has been revoked. Please log in again.").
+  - Password updates, 2FA disabling, and device revocation atomically increment `token_version`, immediately invalidating old access tokens across all other devices.
+
+### 2. Atomic Token Consumption & Anti-Replay Guarantees (F043, F044)
+- **Atomic Email Verification:**
+  - `DBManager.consume_verification_token_atomic` uses a single SQL statement `UPDATE users SET email_verified = true, verification_token = NULL, verification_token_expiry = NULL WHERE verification_token = :hash AND (expiry IS NULL OR expiry > now) RETURNING ...`. Concurrent requests have exactly one winner.
+- **Atomic Password Reset:**
+  - `DBManager.consume_reset_password_token_atomic` atomically checks expiry and hash, updates password, increments `token_version`, revokes active refresh tokens, and clears the token in one atomic transaction.
+- **Atomic TOTP Step Anti-Replay:**
+  - `DBManager.consume_totp_step_atomic` enforces `UPDATE users SET last_totp_step = :step WHERE id = :id AND (last_totp_step IS NULL OR last_totp_step < :step) RETURNING id`. Concurrent replays of the same 30-second TOTP step yield exactly one winner; all concurrent duplicates are rejected.
+- **Single-Use Backup Codes:**
+  - Backup codes are hashed with HMAC-SHA256 (`hash_backup_code`) and atomically consumed/deleted from `two_factor_backup_codes` in Neon via `verify_and_consume_backup_code`.
+
+### 3. Distributed Neon-Backed Rate Limiting (F046)
+- **Distributed Ledger in PostgreSQL:**
+  - `DBManager.check_neon_rate_limit` queries `auth_audit_log` in Neon PostgreSQL across worker processes without introducing Redis or SQLite.
+  - Applied to `/auth/register`, `/auth/login`, `/auth/reset-password`, `/auth/forgot-password`, and 2FA verification.
+
+### 4. Cookie Security & Production Header Policies (F047)
+- **Hardened Cookies:**
+  - Set cookies `authorization`, `access_token`, `refresh_token`, and `csrf_token` with `samesite="lax"`, `path="/"`, and `secure=settings.is_production`.
+  - Double-submit CSRF cookie protection validates `X-CSRF-Token` against `csrf_token` cookie.
+  - `/auth/logout` and `DELETE /auth/account` explicitly clear all authentication cookies (`authorization`, `access_token`, `refresh_token`, `csrf_token`).
+
+### 5. Frontend Auth Lifecycle, Stale Header & Private Query Scoping (F048)
+- **Axios Client (`frontend/src/api/client.js`):**
+  - Eliminated stale `apiClient.defaults.headers.common.Authorization` assignment in refresh response handler; centralized in `setAccessToken` and `clearAccessToken`.
+  - Added strict `timeout: 10000` to `/auth/refresh` to prevent infinite hangs.
+  - Queued requests are cancelled/rejected with session termination errors upon logout.
+- **Context & Cache Invalidation (`frontend/src/context/AuthContext.jsx`):**
+  - Integrated `useQueryClient` from `@tanstack/react-query`.
+  - On logout: cancels in-flight queries (`queryClient.cancelQueries()`), clears query cache (`queryClient.clear()`), and removes active interview/draft session storage keys.
+- **Private Query Scoping:**
+  - `useProfile.js`: scoped by `['profile', userId]`, `enabled: !!userId`.
+  - `useJobs.js`: scoped by `['jobs', userId, hoursOld]`, `['matchedJobs', userId, hoursOld]`, `['criteria', userId]`, `['appHistory', userId]`, `['savedJobs', userId]`, `enabled: !!userId`.
+  - `ApplicationKanban.jsx`: scoped by `['applications', user?.id]`, `enabled: !!user?.id`.
+  - `AnalyticsDashboard.jsx`: scoped by `['analyticsDashboard', user?.id]`, `['conversionFunnel', user?.id]`, `enabled: !!user?.id`.
+
+### 6. Durable Account Deletion & Chroma Failure Resilience (F049)
+- **Cascaded Relational Purge:**
+  - `DBManager.delete_user` removes user rows across 16 child tables (`two_factor_backup_codes`, `refresh_tokens`, `resume_indexing_outbox`, `resume_skills`, `resume_sections`, `resume_versions`, `application_status_history`, `applications_history`, `user_criteria`, `chat_messages`, `interview_sessions`, `career_milestones`, `notifications`, `saved_jobs`, `push_tokens`, `job_applications`).
+  - Preserves compliance audit retention by unlinking `auth_audit_log.user_id = None`.
+- **Chroma Error Resilience:**
+  - Vector index deletions in ChromaDB (`ProfileStore.delete_profile`) are wrapped in fault-tolerant exception handling so that any Chroma storage partition or HTTP failure does NOT abort relational deletion.
+
+### 7. Gate Verification Results (Phase 3)
+- **Alembic Head Verification:** `alembic current` confirms `0019_add_token_version_to_users (head)`
+- **Automated Phase 3 Auth Lifecycle Suite:**
+  - Command: `PYTHONPATH=backend .venv/bin/pytest backend/tests/test_phase3_auth_lifecycle.py -v`
+  - Results: **9 passed, 0 failed** in 383.48s
+    1. `test_registration_and_atomic_verification_single_winner`: PASSED
+    2. `test_access_token_invalidated_immediately_on_token_version_increment`: PASSED
+    3. `test_concurrent_password_reset_has_exactly_one_winner`: PASSED
+    4. `test_2fa_full_lifecycle_and_concurrent_totp_anti_replay`: PASSED
+    5. `test_revoke_other_sessions_invalidates_peer_tokens_and_retains_current`: PASSED
+    6. `test_admin_endpoints_enforce_admin_flag`: PASSED
+    7. `test_neon_backed_rate_limiting`: PASSED
+    8. `test_user_a_cannot_access_user_b_sessions`: PASSED
+    9. `test_account_deletion_with_2fa_and_chroma_failure_resilience`: PASSED
+- **Automated E2E Auth Suite:**
+  - Command: `PYTHONPATH=backend .venv/bin/pytest backend/tests/test_auth_e2e_verification.py -v`
+  - Results: **1 passed, 0 failed** in 151.61s
+- **Automated Email Verification Suite:**
+  - Command: `PYTHONPATH=backend .venv/bin/pytest backend/tests/test_email_verification.py -v`
+  - Results: **16 passed, 0 failed**
+- **Frontend Quality Gate:**
+  - `cd frontend && npm run test`: PASSED (4/4 tests passed)
+  - `cd frontend && npm run lint`: PASSED (0 errors, 0 warnings)
+  - `cd frontend && npm run build`: PASSED (33 chunks generated in 3.17s)
+- **Python Static Analysis:**
+  - `.venv/bin/ruff check --select E9,F63,F7,F82 backend/app backend/alembic backend/tests`: PASSED (0 errors)
+- **Resolved Audit Defect Codes:** **F043, F044, F045, F046, F047, F048, F049**

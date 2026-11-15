@@ -140,6 +140,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         to_encode["token_type"] = "access"
     now_dt = datetime.now(timezone.utc)
     to_encode.setdefault("iat", int(now_dt.timestamp()))
+    # Bind to revocable user token_version if user_id is provided and token_version not explicit
+    if "token_version" not in to_encode and "user_id" in to_encode:
+        try:
+            user = DBManager.get_user_by_id(to_encode["user_id"])
+            to_encode["token_version"] = user.get("token_version", 1) if user else 1
+        except Exception:
+            to_encode["token_version"] = 1
+    elif "token_version" not in to_encode:
+        to_encode["token_version"] = 1
+
     if expires_delta:
         expire = now_dt + expires_delta
     else:
@@ -283,6 +293,16 @@ async def get_current_user(
     user = await run_in_threadpool(DBManager.get_user_by_id, user_id)
     if user is None:
         raise credentials_exception
+
+    # Bind access JWTs to revocable Neon token_version state
+    payload_version = payload.get("token_version")
+    user_version = user.get("token_version", 1)
+    if payload_version != user_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     safe_user = sanitize_user_dict(user)
     # Attach genuine session authentication timestamp from token payload (N4)

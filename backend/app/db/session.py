@@ -1,8 +1,19 @@
 import logging
 import re
+import socket
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
+
+# Prefer IPv4 over unreachable IPv6 routes to prevent connection timeouts with dual-stack hosts (e.g. Neon)
+_orig_getaddrinfo = socket.getaddrinfo
+
+def _ipv4_preferred_getaddrinfo(*args, **kwargs):
+    res = _orig_getaddrinfo(*args, **kwargs)
+    v4 = [r for r in res if r[0] == socket.AF_INET]
+    return v4 if v4 else res
+
+socket.getaddrinfo = _ipv4_preferred_getaddrinfo
 
 logger = logging.getLogger(__name__)
 
