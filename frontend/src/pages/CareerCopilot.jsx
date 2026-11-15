@@ -21,6 +21,11 @@ export const CareerCopilot = () => {
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const isMountedRef = useRef(true);
+  const activeSessionRef = useRef(activeSession);
+
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -93,36 +98,57 @@ export const CareerCopilot = () => {
   };
 
   const startNewSession = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsSending(false);
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setActiveSession(newSessionId);
+    activeSessionRef.current = newSessionId;
     setMessages([]);
     setSelectedJobId('');
   };
 
   const loadSession = async (sessionId) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsSending(false);
     setIsLoadingHistory(true);
     setActiveSession(sessionId);
+    activeSessionRef.current = sessionId;
     try {
       const res = await apiClient.get(`/copilot/history/${sessionId}`);
-      setMessages(res.data);
-    } catch (err) {
+      if (activeSessionRef.current === sessionId) {
+        setMessages(res.data);
+      }
+    } catch {
       toast.error('Failed to load chat history.');
     } finally {
-      setIsLoadingHistory(false);
+      if (activeSessionRef.current === sessionId) {
+        setIsLoadingHistory(false);
+      }
     }
   };
 
   const deleteSession = async (sessionId, e) => {
     e.stopPropagation();
+    if (activeSession === sessionId && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsSending(false);
+    }
     const loadingToast = toast.loading('Deleting session...');
     try {
       await apiClient.delete(`/copilot/session/${sessionId}`);
       toast.success('Session deleted.', { id: loadingToast });
       fetchSessions();
-      if (activeSession === sessionId) {
+      if (activeSessionRef.current === sessionId) {
         startNewSession();
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete session.', { id: loadingToast });
     }
   };
@@ -155,6 +181,8 @@ export const CareerCopilot = () => {
     if (!messageText.trim()) return;
 
     if (!textToSend) setInput('');
+
+    const requestSessionId = activeSession;
 
     // Append user message
     const userMsg = { role: 'user', content: messageText };
@@ -190,7 +218,7 @@ export const CareerCopilot = () => {
         signal: controller.signal,
         body: JSON.stringify({
           message: messageText,
-          session_id: activeSession,
+          session_id: requestSessionId,
           job_id: selectedJobId || null,
           stream: true
         })
@@ -201,7 +229,7 @@ export const CareerCopilot = () => {
       let currentToken = getAccessToken();
       let response = await makeStreamRequest(currentToken);
 
-      // Handle 401 with automatic token refresh (M11)
+      // Handle 401 with automatic token refresh without duplicating user message (M11)
       if (response.status === 401) {
         try {
           const freshToken = await refreshToken();
@@ -224,8 +252,8 @@ export const CareerCopilot = () => {
         throw new Error(msg);
       }
 
-      // Add skeleton assistant message
-      if (isMountedRef.current) {
+      // Add skeleton assistant message only if still on the same session
+      if (isMountedRef.current && activeSessionRef.current === requestSessionId) {
         setMessages(prev => [...prev, { role: 'assistant', content: '', classified_as: 'loading', isStreaming: true }]);
       }
 
@@ -243,7 +271,11 @@ export const CareerCopilot = () => {
         if (!trimmed || !trimmed.startsWith('data: ')) return;
         try {
           const data = JSON.parse(trimmed.slice(6));
-          if (data.token) {
+          // Generation guard: ignore chunks if active session switched
+          if (activeSessionRef.current !== requestSessionId) return;
+
+          if (data.type === 'token' || data.token) {
+            const tokenText = data.token || '';
             if (isMountedRef.current) {
               setMessages(prev => {
                 const lastIdx = prev.length - 1;
@@ -251,7 +283,7 @@ export const CareerCopilot = () => {
                   const updated = [...prev];
                   updated[lastIdx] = {
                     ...updated[lastIdx],
-                    content: updated[lastIdx].content + data.token,
+                    content: updated[lastIdx].content + tokenText,
                     classified_as: data.classified_as || updated[lastIdx].classified_as
                   };
                   return updated;
@@ -259,8 +291,55 @@ export const CareerCopilot = () => {
                 return prev;
               });
             }
-          } else if (data.error) {
-            toast.error(`Error: ${data.error}`);
+          } else if (data.type === 'completed') {
+            if (isMountedRef.current) {
+              setMessages(prev => {
+                const lastIdx = prev.length - 1;
+                if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+                  const updated = [...prev];
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    isStreaming: false
+                  };
+                  return updated;
+                }
+                return prev;
+              });
+            }
+          } else if (data.type === 'cancelled') {
+            if (isMountedRef.current) {
+              setMessages(prev => {
+                const lastIdx = prev.length - 1;
+                if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+                  const updated = [...prev];
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    isStreaming: false,
+                    content: updated[lastIdx].content ? `${updated[lastIdx].content} (cancelled)` : 'Cancelled'
+                  };
+                  return updated;
+                }
+                return prev;
+              });
+            }
+          } else if (data.type === 'error' || data.error) {
+            const errMsg = data.error || 'Copilot streaming error';
+            toast.error(`Error: ${errMsg}`);
+            if (isMountedRef.current) {
+              setMessages(prev => {
+                const lastIdx = prev.length - 1;
+                if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
+                  const updated = [...prev];
+                  updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    content: updated[lastIdx].content ? `${updated[lastIdx].content}\n[Error: ${errMsg}]` : `Error: ${errMsg}`,
+                    isStreaming: false
+                  };
+                  return updated;
+                }
+                return prev;
+              });
+            }
           }
         } catch (e) {
           console.warn('Copilot stream parse failed:', e);
@@ -290,7 +369,7 @@ export const CareerCopilot = () => {
         }
       }
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && activeSessionRef.current === requestSessionId) {
         setMessages(prev => {
           const lastIdx = prev.length - 1;
           if (lastIdx >= 0 && prev[lastIdx].role === 'assistant') {
@@ -307,7 +386,10 @@ export const CareerCopilot = () => {
       }
     } catch (err) {
       if (err.name === 'AbortError') {
-        // Stream aborted by user or unmount; ignore
+        // Stream aborted by user or session switch; ignore
+        return;
+      }
+      if (activeSessionRef.current !== requestSessionId) {
         return;
       }
       console.error('Copilot chat error:', err);
@@ -329,10 +411,12 @@ export const CareerCopilot = () => {
         });
       }
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && activeSessionRef.current === requestSessionId) {
         setIsSending(false);
       }
-      abortControllerRef.current = null;
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   };
 

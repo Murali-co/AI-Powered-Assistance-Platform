@@ -281,6 +281,7 @@ def clean_test_dirs():
                 db.execute(text("DELETE FROM workflow_tasks WHERE workflow_id IN (SELECT id FROM workflows WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%'))"))
                 db.execute(text("DELETE FROM workflows WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
                 db.execute(text("DELETE FROM feedbacks WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%test%' OR email LIKE '%example%')"))
+                db.execute(text("DELETE FROM auth_audit_log WHERE ip_address IN ('testclient', '127.0.0.1') OR email LIKE '%test%' OR email LIKE '%example%'"))
                 db.execute(text("DELETE FROM users WHERE email LIKE '%test%' OR email LIKE '%example%'"))
             except Exception:
                 pass

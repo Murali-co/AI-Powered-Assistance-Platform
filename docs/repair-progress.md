@@ -316,3 +316,83 @@ All 92 cached `.pyc` files located in `backend/app/**/__pycache__/*.cpython-312.
 - **Python Static Analysis:**
   - `.venv/bin/ruff check --select E9,F63,F7,F82 backend/app backend/alembic backend/tests`: PASSED (0 errors)
 - **Resolved Audit Defect Codes:** **F043, F044, F045, F046, F047, F048, F049**
+
+---
+
+## Phase 7: Unified Copilot/RAG Service, Neon Chat Ownership, Stable SSE Streaming & Multi-Tenant Isolation
+**Date:** November 15, 2026  
+**Status:** COMPLETE (Gate Passed)  
+**Branch:** `repair/ai-powered-assistance-platform`  
+**Checkpoint:** `checkpoint/phase-7-copilot-reconciliation`
+
+### 1. API Route Reconciliation & Parity (F008)
+- **Reconciled Unified Copilot Architecture:**
+  - Standardized all chat operations under `/copilot/` as consumed by `frontend/src/pages/CareerCopilot.jsx`:
+    - `GET /copilot/sessions`: returns user's active session IDs in Neon.
+    - `POST /copilot/sessions`: generates and returns unique session ID.
+    - `GET /copilot/history/{session_id}`: returns chronological messages with immutable IDs.
+    - `DELETE /copilot/session/{session_id}`: clears session messages strictly scoped to current user.
+    - `POST /copilot/chat`: unified endpoint supporting both Server-Sent Events (`stream: true`) and standard JSON responses (`stream: false`).
+  - Preserved complete backward-compatible routing under `/rag/` with identical signatures and handler functions.
+  - Retained `/copilot/health` and `/copilot/respond` for legacy compatibility probes.
+
+### 2. Multi-Tenant Relational Isolation in Neon (F023, F043)
+- **Neon PostgreSQL Ownership:**
+  - Persisted all chat turns into `chat_messages` in Neon with columns `(id, session_id, user_id, role, content, created_at)`.
+  - All operations in `ChatMemory` (`add_message`, `get_messages`, `clear_session`, `get_sessions`, `session_exists`) enforce strict `ChatMessage.user_id == current_user["id"]` filtering.
+  - Multi-tenant isolation verified: User B cannot enumerate, view, query, or delete User A's sessions or chat history.
+
+### 3. Stable SSE Event Schema & Interruption Cancellation (F053, F025)
+- **Typed SSE Event Schema:**
+  - `metadata`: `{"type": "metadata", "session_id": sid, "chat_type": mode, "model": model, "has_context": bool}`
+  - `token`: `{"type": "token", "token": text_chunk, "session_id": sid}`
+  - `completed`: `{"type": "completed", "session_id": sid, "message_id": msg_id}`
+  - `error`: `{"type": "error", "error": err_message, "session_id": sid}`
+  - `cancelled`: `{"type": "cancelled", "session_id": sid}`
+- **Unbuffered Streaming Headers:**
+  - Emitted `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`, `Connection: keep-alive`, and `X-Accel-Buffering: no` to ensure Nginx and edge proxies stream events in real time.
+- **Client Disconnect & Cancellation Guarantees:**
+  - Checked `await request.is_disconnected()` at each generated token chunk.
+  - When disconnected, cleanly emits `cancelled` event and immediately terminates generation without saving interrupted or truncated answers as complete assistant messages in Neon.
+
+### 4. Untrusted Prompt Boundaries & Truthful Model State (F022)
+- **Prompt Injection Defense:**
+  - User resume content, granular sections, and third-party job listings are encapsulated within `<untrusted_user_context>` XML delimiters in `RAGGenerator._format_chat_prompt`.
+  - System instructions explicitly forbid following commands, prompt injections, or tool executions embedded inside `<untrusted_user_context>`.
+- **Truthful Disclosure of Insufficient Context & Model Outages:**
+  - When a user has not uploaded a resume, Copilot injects an explicit `[INSUFFICIENT_CONTEXT]` notice and discloses missing context truthfully without fabricating qualifications.
+  - Removed all hardcoded canned fallback career advice. On Ollama timeout or service unavailability, Copilot raises HTTP 503 or emits typed SSE `error` events truthfully disclosing local AI unavailability.
+
+### 5. Frontend Session-Switch Race Elimination & Generation Guards (F025)
+- **Frontend Hardening in `frontend/src/pages/CareerCopilot.jsx`:**
+  - Tracked active session using `activeSessionRef = useRef(activeSession)`.
+  - Cancelled in-flight requests on session switch or new chat via `abortControllerRef.current.abort()`.
+  - Verified `activeSessionRef.current === requestSessionId` in `processDataLine` and stream completion handler to prevent tokens from an aborted stream from leaking into a newly selected session.
+  - Handled 401 token refresh without duplicating user message in state.
+
+### 6. Gate Verification Results (Phase 7)
+- **Automated Phase 7 Copilot/RAG Lifecycle Suite:**
+  - Command: `PYTHONPATH=backend .venv/bin/pytest backend/tests/test_phase7_copilot_rag.py -v`
+  - Results: **10 passed, 0 failed** in 426.69s
+    1. `test_copilot_and_rag_route_parity_and_absence_elimination`: PASSED
+    2. `test_two_user_multi_tenant_isolation_f023_f043`: PASSED
+    3. `test_copilot_chat_non_stream_neon_persistence`: PASSED
+    4. `test_copilot_sse_streaming_protocol_f053`: PASSED
+    5. `test_copilot_stream_cancellation_and_disconnect_no_partial_save`: PASSED
+    6. `test_untrusted_context_prompt_boundaries_f022`: PASSED
+    7. `test_empty_context_and_insufficient_context_truthful_disclosure`: PASSED
+    8. `test_job_context_and_version_specific_retrieval`: PASSED
+    9. `test_model_outage_truthful_failure_handling`: PASSED
+    10. `test_rapid_session_switching_and_revoked_token_guard`: PASSED
+- **Backward Compatibility Regression:**
+  - Command: `PYTHONPATH=backend .venv/bin/pytest backend/tests/test_phase5_career_e2e_regression.py::test_copilot_chat_non_stream_and_history_persistence -v`
+  - Results: **1 passed, 0 failed** in 20.53s
+- **Frontend Quality Gate:**
+  - `cd frontend && npm test`: PASSED (4/4 tests passed)
+  - `cd frontend && npm run lint`: PASSED (0 errors, 0 warnings)
+  - `cd frontend && npm run build`: PASSED (33 chunks generated in 3.42s)
+  - Synced bundle to `backend/static/`
+- **Python Static Analysis:**
+  - `.venv/bin/ruff check --select E9,F63,F7,F82 backend/app backend/alembic backend/tests`: PASSED (0 errors)
+- **Resolved Audit Defect Codes:** **F008, F022, F025, F053, F023, F043**
+
