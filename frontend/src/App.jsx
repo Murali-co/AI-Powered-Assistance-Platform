@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -40,7 +40,8 @@ const queryClient = new QueryClient({
 
 // Route protector for secure pages
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user, sessionError, restoreSession } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -50,11 +51,19 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
+  if (sessionError) {
+    return <div role="alert" className="max-w-lg mx-auto px-6 py-20 text-center space-y-4">
+      <h1 className="text-xl font-bold">Server connection unavailable</h1>
+      <p className="text-sm text-dark-300">{sessionError}</p>
+      <button onClick={restoreSession} className="px-5 py-2 rounded-xl bg-indigo-600 text-white">Retry connection</button>
+    </div>;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
 
-  return children;
+  return React.cloneElement(children, { key: `${user?.id}:${location.key}` });
 };
 
 const PageFallback = () => (

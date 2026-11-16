@@ -11,14 +11,14 @@ class PushTokenRequest(BaseModel):
     device_type: Optional[str] = "web"
 
 @router.get("")
-async def get_user_notifications(
+def get_user_notifications(
     only_unread: bool = False,
     current_user: dict = Depends(get_current_user)
 ):
     return DBManager.get_notifications(current_user["id"], only_unread=only_unread)
 
 @router.post("/read/{notification_id}")
-async def mark_notification_as_read(
+def mark_notification_as_read(
     notification_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -26,14 +26,14 @@ async def mark_notification_as_read(
     return {"message": "Notification marked as read."}
 
 @router.post("/read-all")
-async def mark_all_notifications_as_read(
+def mark_all_notifications_as_read(
     current_user: dict = Depends(get_current_user)
 ):
     DBManager.mark_all_notifications_read(current_user["id"])
     return {"message": "All notifications marked as read."}
 
 @router.post("/push-token")
-async def save_push_token(
+def save_push_token(
     req: PushTokenRequest,
     current_user: dict = Depends(get_current_user)
 ):

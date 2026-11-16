@@ -3,12 +3,15 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import SkillChart from '../components/SkillChart';
 import MatchScore from '../components/MatchScore';
 import { getSafeExternalUrl } from '../utils/urlSecurity';
+import { useAuth } from '../context/AuthContext';
+import { ownedRouteState } from '../utils/pendingTasks';
 
 export const SkillGap = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const data = location.state;
+  const { user } = useAuth();
+  const data = ownedRouteState(location.state, user?.id);
 
   if (!data || !data.skill_gap) {
     return (
@@ -41,7 +44,7 @@ export const SkillGap = () => {
         </div>
 
         <button
-          onClick={() => navigate('/cover-letter', { state: { cover_letter, target_role } })}
+          onClick={() => navigate('/cover-letter', { state: { cover_letter, target_role, ownerId: user.id } })}
           className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all flex items-center space-x-2 shadow-md"
         >
           <span>✍️</span>
@@ -49,13 +52,15 @@ export const SkillGap = () => {
         </button>
       </div>
 
+      <Link to="/jobs" className="inline-block text-sm font-semibold text-indigo-400 hover:text-indigo-300">View recent jobs →</Link>
+
       {/* Grid: Score, Chart, Skills */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Score Card & Skills lists */}
         <div className="lg:col-span-1 space-y-6">
           {/* Big Score Card */}
           <div className="glass-panel border rounded-2xl p-6 text-center space-y-4">
-            <h3 className="text-xs text-dark-400 font-bold uppercase tracking-wider">Skill Matching Quotient</h3>
+            <h3 className="text-xs text-dark-400 font-bold uppercase tracking-wider">AI Skill Coverage Estimate</h3>
             <div className="relative inline-flex items-center justify-center">
               <span className="text-5xl font-black text-indigo-400">{skill_score}</span>
               <span className="text-dark-500 text-sm font-semibold ml-0.5">/100</span>
@@ -93,7 +98,7 @@ export const SkillGap = () => {
                   </span>
                 ))
               ) : (
-                <span className="text-xs text-emerald-400">Perfect match! No gaps found.</span>
+                <span className="text-xs text-emerald-400">No missing skills were identified in this analysis.</span>
               )}
             </div>
           </div>

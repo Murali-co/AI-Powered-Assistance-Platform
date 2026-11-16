@@ -13,6 +13,9 @@ from app.db.models import (
     ChatMessage,
     InterviewSession,
     ResumeVersion,
+    ResumeSection,
+    ResumeSkill,
+    ResumeIndexingOutbox,
     Notification,
     SavedJob,
     PushToken,
@@ -242,15 +245,25 @@ class DBManager:
         db = SessionLocal()
         try:
             # 1. Purge all child records referencing user_id to prevent FK constraint violations
+            # 2FA backup codes
+            db.query(TwoFactorBackupCode).filter(TwoFactorBackupCode.user_id == user_id).delete(synchronize_session=False)
+
+            # Application histories and status child rows
             app_ids = [row[0] for row in db.query(ApplicationHistory.id).filter(ApplicationHistory.user_id == user_id).all()]
             if app_ids:
                 db.query(ApplicationStatusHistory).filter(ApplicationStatusHistory.application_id.in_(app_ids)).delete(synchronize_session=False)
-
             db.query(ApplicationHistory).filter(ApplicationHistory.user_id == user_id).delete(synchronize_session=False)
+
+            # Resume child rows and versions
+            db.query(ResumeIndexingOutbox).filter(ResumeIndexingOutbox.user_id == user_id).delete(synchronize_session=False)
+            db.query(ResumeSkill).filter(ResumeSkill.user_id == user_id).delete(synchronize_session=False)
+            db.query(ResumeSection).filter(ResumeSection.user_id == user_id).delete(synchronize_session=False)
+            db.query(ResumeVersion).filter(ResumeVersion.user_id == user_id).delete(synchronize_session=False)
+
+            # Other user relations
             db.query(UserCriteria).filter(UserCriteria.user_id == user_id).delete(synchronize_session=False)
             db.query(ChatMessage).filter(ChatMessage.user_id == user_id).delete(synchronize_session=False)
             db.query(InterviewSession).filter(InterviewSession.user_id == user_id).delete(synchronize_session=False)
-            db.query(ResumeVersion).filter(ResumeVersion.user_id == user_id).delete(synchronize_session=False)
             db.query(CareerMilestone).filter(CareerMilestone.user_id == user_id).delete(synchronize_session=False)
             db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
             db.query(SavedJob).filter(SavedJob.user_id == user_id).delete(synchronize_session=False)
@@ -258,8 +271,14 @@ class DBManager:
             db.query(JobApplication).filter(JobApplication.user_id == user_id).delete(synchronize_session=False)
             db.query(Feedback).filter(Feedback.user_id == user_id).delete(synchronize_session=False)
             db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete(synchronize_session=False)
-            db.query(AuthAuditLog).filter(AuthAuditLog.user_id == user_id).delete(synchronize_session=False)
             db.query(VerifiedProfile).filter(VerifiedProfile.user_id == user_id).delete(synchronize_session=False)
+
+            # Keep defined audit log retention distinct from active account data: unlink user_id
+            db.query(AuthAuditLog).filter(AuthAuditLog.user_id == user_id).update(
+                {AuthAuditLog.user_id: None, AuthAuditLog.detail: "User deleted (account purged)"},
+                synchronize_session=False
+            )
+
             try:
                 from app.db.models import BackgroundJob
                 db.query(BackgroundJob).filter(BackgroundJob.user_id == user_id).delete(synchronize_session=False)
@@ -276,23 +295,24 @@ class DBManager:
             except Exception:
                 pass
 
-            # 2. Delete user record
+            # 2. Delete user record in Neon PostgreSQL
             db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
             db.commit()
 
-            # 3. Purge profile and application vector embeddings from ChromaDB
+            # 3. Purge profile and application vector embeddings from ChromaDB (with recovery from Chroma failure)
             try:
                 from app.vector_db.profile_store import ProfileStore
                 ProfileStore.delete_profile(user_id)
-            except Exception:
-                pass
+            except Exception as e:
+                # Chroma failures must not abort or roll back relational account deletion
+                print(f"[Account Deletion] Chroma profile purge warning: {e}")
 
             try:
                 from app.vector_db.chroma_client import ChromaDBClient
                 app_col = ChromaDBClient.get_collection("applications")
                 app_col.delete(where={"user_id": str(user_id)})
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Account Deletion] Chroma applications collection purge warning: {e}")
 
             # 4. Clean user uploaded files
             try:
@@ -362,7 +382,7 @@ class DBManager:
             db.close()
 
     @staticmethod
-    def save_criteria(user_id: int, title: Optional[str], location: Optional[str], is_remote: Optional[bool], job_type: Optional[str] = None, hours_old: int = 48):
+    def save_criteria(user_id: int, title: Optional[str], location: Optional[str], is_remote: Optional[bool], job_type: Optional[str] = None, hours_old: int = 168):
         db = SessionLocal()
         try:
             obj = UserCriteria(
@@ -375,6 +395,8 @@ class DBManager:
             )
             db.merge(obj)
             db.commit()
+            from app.jobs.matcher import JobMatcher
+            JobMatcher._match_cache.clear()
         finally:
             db.close()
 
@@ -521,6 +543,25 @@ class DBManager:
     def save_resume_version(user_id: int, resume_text: str, label: str, target_role: Optional[str] = None):
         db = SessionLocal()
         try:
+            from app.resume.lifecycle import save_canonical_resume, index_resume_version
+            from app.resume.cleaner import ResumeCleaner
+            from app.resume.extractor import SkillExtractor
+            sections = ResumeCleaner.segment_sections(resume_text)
+            extracted = SkillExtractor.extract_skills(resume_text, sections)
+            skills = [item["skill"] for item in extracted]
+            version = save_canonical_resume(
+                db=db,
+                user_id=user_id,
+                resume_text=resume_text,
+                skills=skills,
+                target_role=target_role,
+                version_label=label,
+                structured_data={"skills": skills}
+            )
+            index_resume_version(db, version.id)
+            return version.id
+        except Exception:
+            db.rollback()
             rv = ResumeVersion(user_id=user_id, resume_text=resume_text, version_label=label, target_role=target_role)
             db.add(rv)
             db.commit()
@@ -619,12 +660,50 @@ class DBManager:
             db.close()
 
     @staticmethod
+    def increment_user_token_version(user_id: int) -> int:
+        """Increment token_version to immediately invalidate all existing access JWTs across all devices."""
+        db = SessionLocal()
+        try:
+            stmt = (
+                update(User)
+                .where(User.id == user_id)
+                .values(token_version=User.token_version + 1)
+                .returning(User.token_version)
+            )
+            res = db.execute(stmt)
+            new_v = res.scalar()
+            db.commit()
+            return new_v or 1
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    @staticmethod
     def update_password(user_id: int, hashed_pw: str):
         db = SessionLocal()
         try:
-            stmt = update(User).where(User.id == user_id).values(hashed_password=hashed_pw)
+            stmt = (
+                update(User)
+                .where(User.id == user_id)
+                .values(
+                    hashed_password=hashed_pw,
+                    token_version=User.token_version + 1
+                )
+            )
             db.execute(stmt)
+            # Revoke all active refresh token sessions across all devices
+            now = datetime.now(timezone.utc)
+            db.execute(
+                update(RefreshToken)
+                .where(RefreshToken.user_id == user_id)
+                .values(revoked_at=now)
+            )
             db.commit()
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -634,9 +713,13 @@ class DBManager:
         db = SessionLocal()
         try:
             stmt = update(ApplicationHistory).where(ApplicationHistory.id == app_id).values(status=status)
-            db.execute(stmt)
+            changed = db.execute(stmt)
+            if changed.rowcount:
+                db.add(ApplicationStatusHistory(application_id=app_id, status=status))
             db.commit()
-            DBManager.record_status_history(app_id, status)
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -824,6 +907,38 @@ class DBManager:
         finally:
             db.close()
 
+    @staticmethod
+    def consume_verification_token_atomic(token_or_hash: str) -> Optional[Dict[str, Any]]:
+        """Atomically consume email verification token in a single Neon statement.
+        Checks expiry, sets email_verified=true, clears token, and returns user dict.
+        Guarantees that under concurrent requests, exactly ONE request wins.
+        """
+        from app.auth.utils import hash_token
+        clean_tok = token_or_hash.strip()
+        is_hash = len(clean_tok) == 64 and all(c in "0123456789abcdefABCDEF" for c in clean_tok)
+        token_hash = clean_tok if is_hash else hash_token(clean_tok)
+        now = datetime.now(timezone.utc)
+        db = SessionLocal()
+        try:
+            stmt = text("""
+                UPDATE users
+                SET email_verified = true,
+                    verification_token = NULL,
+                    verification_token_expiry = NULL
+                WHERE verification_token = :token_hash
+                  AND (verification_token_expiry IS NULL OR verification_token_expiry > :now)
+                RETURNING id, email, full_name, is_admin, token_version, email_verified
+            """)
+            res = db.execute(stmt, {"token_hash": token_hash, "now": now})
+            row = res.mappings().first()
+            db.commit()
+            return dict(row) if row else None
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     # ===== PASSWORD RESET METHODS =====
     @staticmethod
     def set_reset_password_token(user_id: int, token: str, expiry: datetime):
@@ -861,10 +976,58 @@ class DBManager:
             stmt = update(User).where(User.id == user_id).values(
                 hashed_password=hashed_password,
                 reset_password_token=None,
-                reset_password_token_expiry=None
+                reset_password_token_expiry=None,
+                token_version=User.token_version + 1
             )
             db.execute(stmt)
             db.commit()
+        finally:
+            db.close()
+
+    @staticmethod
+    def consume_reset_password_token_atomic(token_or_hash: str, new_hashed_password: str) -> Optional[Dict[str, Any]]:
+        """Atomically consume password reset token in a single Neon statement.
+        Checks expiry, updates password, increments token_version (invalidating old JWTs),
+        clears token, revokes active refresh tokens, and returns user dict.
+        Guarantees that under concurrent requests, exactly ONE request wins.
+        """
+        from app.auth.utils import hash_token
+        clean_tok = token_or_hash.strip()
+        is_hash = len(clean_tok) == 64 and all(c in "0123456789abcdefABCDEF" for c in clean_tok)
+        token_hash = clean_tok if is_hash else hash_token(clean_tok)
+        now = datetime.now(timezone.utc)
+        db = SessionLocal()
+        try:
+            stmt = text("""
+                UPDATE users
+                SET hashed_password = :hashed_password,
+                    reset_password_token = NULL,
+                    reset_password_token_expiry = NULL,
+                    token_version = token_version + 1
+                WHERE reset_password_token = :token_hash
+                  AND (reset_password_token_expiry IS NULL OR reset_password_token_expiry > :now)
+                RETURNING id, email, full_name, is_admin, token_version
+            """)
+            res = db.execute(stmt, {
+                "hashed_password": new_hashed_password,
+                "token_hash": token_hash,
+                "now": now
+            })
+            row = res.mappings().first()
+            if row:
+                user_id = row["id"]
+                db.execute(
+                    update(RefreshToken)
+                    .where(RefreshToken.user_id == user_id)
+                    .values(revoked_at=now)
+                )
+                db.commit()
+                return dict(row)
+            db.commit()
+            return None
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
@@ -1485,6 +1648,70 @@ class DBManager:
             if user and user.two_factor_secret:
                 return decrypt_totp_secret(user.two_factor_secret)
             return None
+        finally:
+            db.close()
+
+    @staticmethod
+    def consume_totp_step_atomic(user_id: int, step: int) -> bool:
+        """Atomically record and consume TOTP time step to prevent replay attacks (M1).
+        Under concurrent requests with the identical time step, exactly one wins.
+        """
+        db = SessionLocal()
+        try:
+            stmt = text("""
+                UPDATE users
+                SET last_totp_step = :step
+                WHERE id = :user_id
+                  AND (last_totp_step IS NULL OR last_totp_step < :step)
+                RETURNING id
+            """)
+            res = db.execute(stmt, {"user_id": user_id, "step": step})
+            row = res.mappings().first()
+            db.commit()
+            return row is not None
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    @staticmethod
+    def check_neon_rate_limit(
+        event_type: str,
+        ip_address: Optional[str] = None,
+        email: Optional[str] = None,
+        max_requests: int = 10,
+        window_seconds: int = 60
+    ) -> bool:
+        """Rate limit sensitive actions across all workers using AuthAuditLog in Neon PostgreSQL.
+        Returns True if allowed, False if exceeded.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
+        db = SessionLocal()
+        try:
+            if ip_address:
+                count_ip = db.query(func.count(AuthAuditLog.id)).filter(
+                    AuthAuditLog.event_type == event_type,
+                    AuthAuditLog.ip_address == ip_address,
+                    AuthAuditLog.created_at >= cutoff
+                ).scalar() or 0
+                if count_ip >= max_requests:
+                    return False
+
+            if email:
+                clean_email = email.strip().lower()
+                count_email = db.query(func.count(AuthAuditLog.id)).filter(
+                    AuthAuditLog.event_type == event_type,
+                    func.lower(AuthAuditLog.email) == clean_email,
+                    AuthAuditLog.created_at >= cutoff
+                ).scalar() or 0
+                if count_email >= max_requests:
+                    return False
+
+            return True
+        except Exception as e:
+            print(f"[RateLimit Warning] Neon rate limit check error: {e}")
+            return True
         finally:
             db.close()
 

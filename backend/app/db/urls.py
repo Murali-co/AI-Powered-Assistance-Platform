@@ -1,5 +1,29 @@
 """Connection URL validation without creating an engine or reading credentials."""
 from sqlalchemy.engine import make_url
+from sqlalchemy import event
+
+
+def connection_args(raw_url: str) -> dict:
+    """Bound dead-socket waits as well as initial connection establishment.
+
+    connect_timeout alone does not bound an established connection's TCP wait.
+    Server statement deadlines are installed per transaction, since Neon
+    pooled connections reject statement_timeout in startup options.
+    """
+    build_engine_url(raw_url)
+    args = {'connect_timeout': 10, 'keepalives': 1, 'keepalives_idle': 10,
+            'keepalives_interval': 5, 'keepalives_count': 3, 'tcp_user_timeout': 30000}
+    return args
+
+
+def configure_statement_timeout(engine, milliseconds: int):
+    if type(milliseconds) is not int or not 1000 <= milliseconds <= 600000:
+        raise ValueError('DATABASE_STATEMENT_TIMEOUT_MS must be from 1000 to 600000.')
+    @event.listens_for(engine, 'begin')
+    def bound_transaction(connection):
+        # SET LOCAL belongs to this transaction and is reset at commit or
+        # rollback. It cannot leak to another user through transaction pooling.
+        connection.exec_driver_sql(f'SET LOCAL statement_timeout = {milliseconds}')
 
 
 def build_engine_url(raw_url: str) -> str:

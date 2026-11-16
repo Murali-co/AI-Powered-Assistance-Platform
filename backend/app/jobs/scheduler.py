@@ -216,6 +216,32 @@ def _ensure_scheduler_loop():
     return loop
 
 
+def _process_resume_indexing_outbox():
+    """Poll and process pending resume indexing outbox tasks from Neon."""
+    try:
+        from app.db.session import SessionLocal
+        from app.db.models import ResumeIndexingOutbox
+        from app.resume.lifecycle import index_resume_version
+
+        db = SessionLocal()
+        try:
+            pending = db.query(ResumeIndexingOutbox).filter(
+                ResumeIndexingOutbox.status.in_(["pending", "failed"]),
+                ResumeIndexingOutbox.attempts < 5
+            ).limit(10).all()
+            for task in pending:
+                logger.info("Worker processing outbox indexing for resume_version_id=%s", task.resume_version_id)
+                index_resume_version(db, task.resume_version_id)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.error("Error processing resume indexing outbox: %s", exc)
+
+
+async def process_resume_indexing_outbox():
+    await run_in_threadpool(_process_resume_indexing_outbox)
+
+
 def start_scheduler():
     """Start APScheduler with single-process lock guard."""
     if scheduler.running:
@@ -228,6 +254,13 @@ def start_scheduler():
     _ensure_scheduler_loop()
 
     try:
+        scheduler.add_job(
+            process_resume_indexing_outbox,
+            'interval',
+            seconds=30,
+            id='outbox_indexing_job',
+            replace_existing=True
+        )
         scheduler.add_job(
             scheduled_scraping_job,
             'interval',
@@ -377,3 +410,16 @@ def shutdown_scheduler(wait: bool = False):
         logger.warning(f"Warning during scheduler shutdown: {e}")
     finally:
         _release_process_lock()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logger.info("Starting AI-Powered-Assistance-Platform background worker...")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    start_scheduler()
+    try:
+        loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Stopping worker scheduler...")
+        shutdown_scheduler(wait=True)

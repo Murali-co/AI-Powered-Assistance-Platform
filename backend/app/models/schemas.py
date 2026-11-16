@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
-# --- Password Policy Constants (AI Powered Assistance Platform H6 Remediation) ---
+# --- Password Policy Constants (AI-Powered-Assistance-Platform H6 Remediation) ---
 PASSWORD_MIN_LENGTH = 10
 PASSWORD_MAX_LENGTH = 128
 
@@ -67,18 +67,18 @@ class TwoFactorVerifyRequest(BaseModel):
 
 # --- Resume / Profile ---
 class SkillGapRequest(BaseModel):
-    target_role: str
+    target_role: str = Field(min_length=1, max_length=200, pattern=r'\S')
 
 class LearningResource(BaseModel):
     title: str
     url: str
 
 class SkillGapResponse(BaseModel):
-    present_skills: List[str]
-    missing_skills: List[str]
-    skill_score: int
-    recommendations: List[str]
-    learning_resources: List[Union[LearningResource, str]]
+    present_skills: List[str] = Field(max_length=100)
+    missing_skills: List[str] = Field(max_length=100)
+    skill_score: int = Field(ge=0, le=100)
+    recommendations: List[str] = Field(max_length=20)
+    learning_resources: List[Union[LearningResource, str]] = Field(max_length=20)
 
 class CoverLetterRequest(BaseModel):
     target_role: str
@@ -106,13 +106,14 @@ class ResumeTailorResponse(BaseModel):
 
 # --- Jobs ---
 class JobFilterCriteria(BaseModel):
-    title: Optional[str] = None
-    location: Optional[str] = None
+    title: Optional[str] = Field(default=None, max_length=200)
+    location: Optional[str] = Field(default=None, max_length=200)
     is_remote: Optional[bool] = None
-    hours_old: Optional[int] = 48
+    hours_old: Optional[int] = Field(default=168, ge=1, le=720)
     job_type: Optional[str] = None  # remote, hybrid, onsite, any
 
 class JobOut(BaseModel):
+    live_verified: bool = False
     id: str
     title: str
     company: str
@@ -120,7 +121,7 @@ class JobOut(BaseModel):
     description: Optional[str] = ""
     url: Optional[str] = ""
     posted_at: Optional[str] = ""
-    posted_ts: Optional[str] = ""
+    posted_ts: Optional[float | str] = ""
     source: Optional[str] = "custom"
     match_score: Optional[float] = None
     matched_skills: Optional[List[str]] = None

@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr
 from app.models.schemas import (
     UserRegister, UserLogin, Token, UserOut,
     ForgotPasswordRequest, ResetPasswordRequest,
-    PasswordResetResponse,
+    PasswordResetResponse, ChangePasswordRequest,
     TwoFactorConfirmRequest, TwoFactorDisableRequest, TwoFactorVerifyRequest
 )
 from app.auth.models import DBManager
@@ -128,11 +128,15 @@ def issue_tokens_and_set_cookies(
     now_ts = int(datetime.now(timezone.utc).timestamp())
     effective_auth_time = auth_time if auth_time is not None else now_ts
 
+    user_rec = DBManager.get_user_by_id(user_id)
+    current_token_version = user_rec.get("token_version", 1) if user_rec else 1
+
     token_data = {
         "user_id": user_id,
         "email": user_email,
         "type": "access",
-        "auth_time": effective_auth_time
+        "auth_time": effective_auth_time,
+        "token_version": current_token_version
     }
     access_token = create_access_token(data=token_data)
     
@@ -169,7 +173,18 @@ def issue_tokens_and_set_cookies(
         value=f"Bearer {access_token}",
         httponly=True,
         secure=settings.is_production,
-        samesite="strict",
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+
+    # Set access_token cookie for direct token readers
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/"
     )
@@ -180,7 +195,7 @@ def issue_tokens_and_set_cookies(
         value=raw_refresh_token,
         httponly=True,
         secure=settings.is_production,
-        samesite="strict",
+        samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
         path="/"
     )
@@ -191,7 +206,7 @@ def issue_tokens_and_set_cookies(
         value=csrf_tok,
         httponly=False,
         secure=settings.is_production,
-        samesite="strict",
+        samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
         path="/"
     )
@@ -207,6 +222,15 @@ def register(user_data: UserRegister, request: Request):
     ua = request.headers.get("user-agent")
     clean_email = user_data.email.strip().lower()
     clean_full_name = user_data.full_name.strip()
+
+    # Distributed rate limit check against Neon
+    if not DBManager.check_neon_rate_limit("registration_attempt", ip_address=ip_addr, email=clean_email, max_requests=15, window_seconds=3600):
+        DBManager.log_auth_event("rate_limit_exceeded", email=clean_email, ip_address=ip_addr, user_agent=ua, detail="Neon rate limit exceeded on register")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many registration attempts. Please try again later."
+        )
+    DBManager.log_auth_event("registration_attempt", email=clean_email, ip_address=ip_addr, user_agent=ua)
 
     # Check if user already exists
     existing_user = DBManager.get_user_by_email(clean_email)
@@ -267,7 +291,7 @@ def register(user_data: UserRegister, request: Request):
     )
 
     response_payload = {
-        "message": "Registration successful. Welcome to AI Powered Assistance Platform! A verification email has been sent to confirm your email address.",
+        "message": "Registration successful. Welcome to AI-Powered-Assistance-Platform! A verification email has been sent to confirm your email address.",
         "email_sent": email_sent,
     }
 
@@ -454,7 +478,13 @@ def refresh(request: Request, response: Response):
                 
                 if successor and successor.get("revoked_at") is None and successor_expires and successor_expires > now:
                     succ_auth_time = successor.get("auth_time") or record.get("auth_time") or auth_time
-                    token_data = {"user_id": user["id"], "email": user["email"], "type": "access", "auth_time": succ_auth_time}
+                    token_data = {
+                        "user_id": user["id"],
+                        "email": user["email"],
+                        "type": "access",
+                        "auth_time": succ_auth_time,
+                        "token_version": user.get("token_version", 1)
+                    }
                     access_token = create_access_token(data=token_data)
                     
                     response.set_cookie(
@@ -462,7 +492,16 @@ def refresh(request: Request, response: Response):
                         value=f"Bearer {access_token}",
                         httponly=True,
                         secure=settings.is_production,
-                        samesite="strict",
+                        samesite="lax",
+                        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                        path="/"
+                    )
+                    response.set_cookie(
+                        key="access_token",
+                        value=access_token,
+                        httponly=True,
+                        secure=settings.is_production,
+                        samesite="lax",
                         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                         path="/"
                     )
@@ -519,14 +558,29 @@ def refresh(request: Request, response: Response):
                 successor_expires = parse_utc_datetime(successor.get("expires_at")) if successor else None
                 if successor and successor.get("revoked_at") is None and successor_expires and successor_expires > now:
                     succ_auth_time = successor.get("auth_time") or record.get("auth_time") or auth_time
-                    token_data = {"user_id": user["id"], "email": user["email"], "type": "access", "auth_time": succ_auth_time}
+                    token_data = {
+                        "user_id": user["id"],
+                        "email": user["email"],
+                        "type": "access",
+                        "auth_time": succ_auth_time,
+                        "token_version": user.get("token_version", 1)
+                    }
                     access_token = create_access_token(data=token_data)
                     response.set_cookie(
                         key="authorization",
                         value=f"Bearer {access_token}",
                         httponly=True,
                         secure=settings.is_production,
-                        samesite="strict",
+                        samesite="lax",
+                        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                        path="/"
+                    )
+                    response.set_cookie(
+                        key="access_token",
+                        value=access_token,
+                        httponly=True,
+                        secure=settings.is_production,
+                        samesite="lax",
                         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                         path="/"
                     )
@@ -538,7 +592,13 @@ def refresh(request: Request, response: Response):
             )
 
         # Persistence succeeded! Now safe to issue tokens and set cookies (L2)
-        token_data = {"user_id": user["id"], "email": user["email"], "type": "access", "auth_time": auth_time}
+        token_data = {
+            "user_id": user["id"],
+            "email": user["email"],
+            "type": "access",
+            "auth_time": auth_time,
+            "token_version": user.get("token_version", 1)
+        }
         access_token = create_access_token(data=token_data)
         csrf_tok = generate_csrf_token()
 
@@ -547,7 +607,16 @@ def refresh(request: Request, response: Response):
             value=f"Bearer {access_token}",
             httponly=True,
             secure=settings.is_production,
-            samesite="strict",
+            samesite="lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            path="/"
+        )
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=settings.is_production,
+            samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/"
         )
@@ -556,7 +625,7 @@ def refresh(request: Request, response: Response):
             value=new_raw_refresh,
             httponly=True,
             secure=settings.is_production,
-            samesite="strict",
+            samesite="lax",
             max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
             path="/"
         )
@@ -565,7 +634,7 @@ def refresh(request: Request, response: Response):
             value=csrf_tok,
             httponly=False,
             secure=settings.is_production,
-            samesite="strict",
+            samesite="lax",
             max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
             path="/"
         )
@@ -584,7 +653,7 @@ def refresh(request: Request, response: Response):
 @router.post("/logout")
 def logout(request: Request, response: Response):
     """
-    Logout endpoint (H5 def handler). Revokes refresh token in database and clears cookies.
+    Logout endpoint (H5 def handler). Revokes refresh token in database and clears all auth cookies.
     """
     raw_refresh_token = request.cookies.get("refresh_token")
     if raw_refresh_token:
@@ -592,6 +661,7 @@ def logout(request: Request, response: Response):
         DBManager.revoke_refresh_token(token_hash)
         
     response.delete_cookie(key="authorization", path="/")
+    response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="refresh_token", path="/")
     response.delete_cookie(key="csrf_token", path="/")
     return {"message": "Logged out successfully"}
@@ -649,14 +719,19 @@ def revoke_session(session_id: int, request: Request, current_user: dict = Depen
 
 @router.post("/sessions/revoke-others")
 @limiter.limit("30/minute")
-def revoke_other_sessions(request: Request, current_user: dict = Depends(get_current_user)):
+def revoke_other_sessions(request: Request, response: Response, current_user: dict = Depends(get_current_user)):
     """
     Revoke all active sessions for current user EXCEPT the current session (H5 def handler).
+    Increments token_version to immediately revoke access tokens on other devices,
+    and re-issues updated tokens/cookies for the current session.
     """
     raw_refresh = request.cookies.get("refresh_token")
     current_hash = hash_refresh_token(raw_refresh) if raw_refresh else None
 
     count = DBManager.revoke_other_user_sessions(current_user["id"], current_hash)
+    DBManager.increment_user_token_version(current_user["id"])
+    access_token, raw_refresh, csrf_tok = issue_tokens_and_set_cookies(current_user["id"], current_user["email"], request, response)
+
     DBManager.log_auth_event(
         "sessions_revoked",
         user_id=current_user["id"],
@@ -664,7 +739,51 @@ def revoke_other_sessions(request: Request, current_user: dict = Depends(get_cur
         user_agent=request.headers.get("user-agent"),
         detail=f"Revoked {count} other active sessions"
     )
-    return {"message": f"Successfully logged out {count} other device(s).", "revoked_count": count}
+    return {"message": f"Successfully logged out {count} other device(s).", "revoked_count": count, "access_token": access_token}
+
+
+@router.post("/change-password")
+@limiter.limit("10/minute")
+def change_password(
+    body: ChangePasswordRequest,
+    request: Request,
+    response: Response,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Change password for authenticated user. Verifies current password,
+    atomically updates password, increments token_version, and revokes all other sessions.
+    """
+    ip_addr = get_client_ip(request)
+    ua = request.headers.get("user-agent")
+    user_id = current_user["id"]
+    full_user = DBManager.get_user_by_id(user_id)
+    if not full_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not verify_password(body.current_password, full_user["hashed_password"]):
+        DBManager.log_auth_event(
+            "password_change_failed",
+            user_id=user_id,
+            ip_address=ip_addr,
+            user_agent=ua,
+            detail="Incorrect current password provided"
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password")
+
+    new_hashed = get_password_hash(body.new_password)
+    DBManager.update_password(user_id, new_hashed)
+    access_token, raw_refresh, csrf_tok = issue_tokens_and_set_cookies(user_id, full_user["email"], request, response)
+
+    DBManager.log_auth_event(
+        "password_changed",
+        user_id=user_id,
+        email=full_user["email"],
+        ip_address=ip_addr,
+        user_agent=ua,
+        detail="Password changed successfully; active sessions rotated."
+    )
+    return {"message": "Password changed successfully.", "access_token": access_token}
 
 
 @router.get("/me", response_model=UserOut)
@@ -719,56 +838,33 @@ def reset_password(request: Request, body: ResetPasswordRequest):
     ip_addr = get_client_ip(request)
     ua = request.headers.get("user-agent")
 
+    # Distributed rate limit check against Neon
+    if not DBManager.check_neon_rate_limit("password_reset_attempt", ip_address=ip_addr, max_requests=10, window_seconds=300):
+        DBManager.log_auth_event("rate_limit_exceeded", ip_address=ip_addr, user_agent=ua, detail="Neon rate limit exceeded on reset_password")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many password reset attempts. Please try again later."
+        )
+
     raw_token = body.token.strip()
-    token_hash = hash_token(raw_token)
+    hashed_password = get_password_hash(body.password)
 
-    # Perform lookup strictly using SHA-256 hash of submitted opaque token (N2)
-    user = DBManager.get_user_by_reset_token(token_hash)
+    # Atomic token consumption and session revocation in Neon
+    user = DBManager.consume_reset_password_token_atomic(raw_token, hashed_password)
     if not user:
+        DBManager.log_auth_event(
+            "password_reset_failed",
+            user_id=None,
+            ip_address=ip_addr,
+            user_agent=ua,
+            detail="Reset token has already been used, is invalid, or expired."
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reset token has already been used or is invalid."
+            detail="Reset token has already been used, is expired or invalid."
         )
-
-    stored_token = user.get("reset_password_token")
-    if not stored_token or not hmac.compare_digest(stored_token, token_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reset token has already been used or is invalid."
-        )
-
-    expiry = user.get("reset_password_token_expiry")
-    if expiry:
-        expiry_dt = None
-        if isinstance(expiry, str):
-            val = expiry.replace(" ", "T")
-            try:
-                if "+" in val or "-" in val.split("T")[-1]:
-                    expiry_dt = datetime.fromisoformat(val)
-                else:
-                    expiry_dt = datetime.fromisoformat(val).replace(tzinfo=timezone.utc)
-            except Exception:
-                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
-                    try:
-                        expiry_dt = datetime.strptime(expiry, fmt).replace(tzinfo=timezone.utc)
-                        break
-                    except ValueError:
-                        continue
-        else:
-            expiry_dt = expiry
-            if expiry_dt and expiry_dt.tzinfo is None:
-                expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
-
-        if expiry_dt and datetime.now(timezone.utc) > expiry_dt:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expired or invalid reset token.")
 
     user_id = user["id"]
-    hashed_password = get_password_hash(body.password)
-    DBManager.reset_password(user_id, hashed_password)
-
-    # H6: Revoke ALL existing refresh token sessions across all devices
-    DBManager.revoke_all_user_refresh_tokens(user_id)
-
     DBManager.log_auth_event(
         "password_reset_completed",
         user_id=user_id,
@@ -800,52 +896,14 @@ def verify_email(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Verification token is required"
         )
-    token_hash = hash_token(active_token)
-    # Perform lookup strictly using SHA-256 hash of submitted opaque token (N2)
-    user = DBManager.get_user_by_verification_token(token_hash)
+    # Atomic token consumption in Neon
+    user = DBManager.consume_verification_token_atomic(active_token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired verification token"
         )
 
-    stored_token = user.get("verification_token")
-    if not stored_token or not hmac.compare_digest(stored_token, token_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
-        )
-        
-    # Check expiry
-    expiry = user.get("verification_token_expiry")
-    if expiry:
-        expiry_dt = None
-        if isinstance(expiry, str):
-            val = expiry.replace(" ", "T")
-            try:
-                if "+" in val or "-" in val.split("T")[-1]:
-                    expiry_dt = datetime.fromisoformat(val)
-                else:
-                    expiry_dt = datetime.fromisoformat(val).replace(tzinfo=timezone.utc)
-            except Exception:
-                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
-                    try:
-                        expiry_dt = datetime.strptime(expiry, fmt).replace(tzinfo=timezone.utc)
-                        break
-                    except ValueError:
-                        continue
-        elif isinstance(expiry, datetime):
-            expiry_dt = expiry
-            if expiry_dt.tzinfo is None:
-                expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
-                
-        if expiry_dt and datetime.now(timezone.utc) > expiry_dt:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Verification token has expired"
-            )
-            
-    DBManager.verify_email(user["id"])
     access_token, raw_refresh, csrf_tok = issue_tokens_and_set_cookies(user["id"], user["email"], request, response)
     DBManager.log_auth_event("login_success", user_id=user["id"], ip_address=get_client_ip(request), user_agent=request.headers.get("user-agent"), detail="Email verified and logged in")
     return {
@@ -944,7 +1002,7 @@ def setup_2fa(
 
     secret = pyotp.random_base32()
     totp = pyotp.TOTP(secret)
-    otpauth_url = totp.provisioning_uri(name=current_user["email"], issuer_name="AI Powered Assistance Platform")
+    otpauth_url = totp.provisioning_uri(name=current_user["email"], issuer_name="AI-Powered-Assistance-Platform")
 
     # Store generated secret on server as pending state (enabled=False); do not trust client-supplied secret (N4)
     DBManager.set_user_2fa_secret(current_user["id"], secret=secret, enabled=False)
@@ -1001,7 +1059,7 @@ def confirm_2fa(body: TwoFactorConfirmRequest, request: Request, current_user: d
 
 @router.post("/2fa/disable")
 @limiter.limit("10/minute")
-def disable_2fa(body: TwoFactorDisableRequest, request: Request, current_user: dict = Depends(get_current_user)):
+def disable_2fa(body: TwoFactorDisableRequest, request: Request, response: Response, current_user: dict = Depends(get_current_user)):
     """Disable 2FA after verifying current user password (H5 def handler, M1)"""
     full_user = DBManager.get_user_by_id(current_user["id"])
     if not full_user:
@@ -1013,9 +1071,11 @@ def disable_2fa(body: TwoFactorDisableRequest, request: Request, current_user: d
 
     DBManager.set_user_2fa_secret(current_user["id"], secret=None, enabled=False)
     DBManager.save_user_backup_codes(current_user["id"], [])
+    DBManager.increment_user_token_version(current_user["id"])
+    access_token, raw_refresh, csrf_tok = issue_tokens_and_set_cookies(current_user["id"], current_user["email"], request, response)
     DBManager.log_auth_event("2fa_disabled", user_id=current_user["id"], ip_address=get_client_ip(request), user_agent=request.headers.get("user-agent"), detail="2FA disabled successfully")
 
-    return {"message": "Two-factor authentication disabled successfully."}
+    return {"message": "Two-factor authentication disabled successfully.", "access_token": access_token}
 
 
 @router.post("/2fa/backup-codes/regenerate")
@@ -1096,15 +1156,14 @@ def verify_2fa(body: TwoFactorVerifyRequest, request: Request, response: Respons
 
     is_valid = False
     if matched_step is not None:
-        # Prevent reuse of a TOTP time step (M1)
-        last_step = user.get("last_totp_step")
-        if last_step is not None and matched_step <= last_step:
+        # Atomic TOTP step consumption in Neon to prevent concurrent replay attacks
+        consumed = DBManager.consume_totp_step_atomic(user_id, matched_step)
+        if not consumed:
             DBManager.log_auth_event("2fa_failed", user_id=user_id, ip_address=ip_addr, user_agent=ua, detail="Replay of TOTP time step detected")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This 2FA code has already been used. Please wait for the next time window."
             )
-        DBManager.update_user_last_totp_step(user_id, matched_step)
         is_valid = True
     else:
         # Fallback check: try atomic backup code consumption
@@ -1181,6 +1240,7 @@ def delete_account(
     DBManager.delete_user(user_id)
 
     # Clear authentication cookies
+    response.delete_cookie(key="authorization", path="/")
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="refresh_token", path="/")
     response.delete_cookie(key="csrf_token", path="/")

@@ -1,11 +1,13 @@
 from sqlalchemy import (
     Column,
     Integer,
+    Float,
     String,
     Text,
     DateTime,
     Boolean,
     ForeignKey,
+    Index,
     func,
     JSON,
 )
@@ -44,6 +46,8 @@ class User(Base):
     # Orchestrator preferences
     auto_approve_external_actions = Column(Boolean, nullable=False, default=False, server_default='false')
     
+    # Revocable session/token version
+    token_version = Column(Integer, nullable=False, default=1, server_default='1')
 
 
 
@@ -80,7 +84,7 @@ class UserCriteria(Base):
     location = Column(String, nullable=True)
     is_remote = Column(Boolean, nullable=True)
     job_type = Column(String, nullable=True)
-    hours_old = Column(Integer, default=48)
+    hours_old = Column(Integer, default=168)
 
 
 class ChatMessage(Base):
@@ -114,12 +118,56 @@ class InterviewSession(Base):
 class ResumeVersion(Base):
     __tablename__ = "resume_versions"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     resume_text = Column(Text, nullable=False)
     version_label = Column(String, nullable=False)
     target_role = Column(String, nullable=True)
     structured_data = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=False, nullable=False, server_default='false', index=True)
+    indexing_status = Column(String(32), default="pending", nullable=False, server_default="'pending'", index=True)
+    embedding_id = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_resume_versions_user_active", "user_id", "is_active"),
+    )
+
+
+class ResumeSection(Base):
+    __tablename__ = "resume_sections"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resume_version_id = Column(Integer, ForeignKey("resume_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    section_type = Column(String(64), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ResumeSkill(Base):
+    __tablename__ = "resume_skills"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resume_version_id = Column(Integer, ForeignKey("resume_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    skill_name = Column(String(128), nullable=False, index=True)
+    category = Column(String(64), nullable=True)
+    years_experience = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ResumeIndexingOutbox(Base):
+    __tablename__ = "resume_indexing_outbox"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resume_version_id = Column(Integer, ForeignKey("resume_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(32), default="pending", nullable=False, index=True)  # pending, indexing, completed, failed
+    error_message = Column(Text, nullable=True)
+    attempts = Column(Integer, default=0, nullable=False, server_default='0')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_resume_outbox_user_status", "user_id", "status"),
+    )
 
 
 class CareerMilestone(Base):
@@ -282,5 +330,34 @@ class BackgroundJob(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class Workflow(Base):
+    __tablename__ = "workflows"
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    goal = Column(Text, nullable=False)
+    status = Column(String, default="PENDING", nullable=False, server_default="'PENDING'")
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class WorkflowTask(Base):
+    __tablename__ = "workflow_tasks"
+    id = Column(String, primary_key=True, index=True)
+    task_id = Column(String, nullable=False)
+    workflow_id = Column(String, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_type = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    status = Column(String, default="PENDING", nullable=False, server_default="'PENDING'")
+    input_json = Column(Text, nullable=True)
+    output_json = Column(Text, nullable=True)
+    dependencies_json = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
 
 

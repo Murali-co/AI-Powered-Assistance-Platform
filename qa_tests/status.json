@@ -1,0 +1,210 @@
+{
+  "project": "AI-Powered-Assistance-Platform",
+  "audit_date": "2026-11-16",
+  "entire_project_verified": false,
+  "verification_in_progress": false,
+  "baseline": {
+    "revision": "3ff72fa",
+    "finding": "Recent Git resets removed prior repair files. Repairs were reconstructed in a temporary directory, reviewed and checked again.",
+    "initial_frontend": "Lint, 4 tests and build passed despite missing runtime API contracts.",
+    "initial_backend": "Interview lifecycle routes, Vite API proxy and safe test isolation were missing."
+  },
+  "feature_groups": [
+    {
+      "id": "F-01",
+      "feature": "Installation, configuration, startup and deployment",
+      "status": "IN PROGRESS",
+      "evidence": "Local supervisor starts UI/API after readiness, supervises only owned children and has a bounded restart budget. Normal Neon readiness and saved DNS recovery work. Container deployment remains unexecuted."
+    },
+    {
+      "id": "F-02",
+      "feature": "Authentication, sessions, passwords, 2FA, ownership and account deletion",
+      "status": "IN PROGRESS",
+      "evidence": "Isolated Neon backend checks cover auth/session/password/2FA/account isolation and deletion; full end-user journey passed after refreshing tokens following 2FA changes. Live email delivery was intentionally not exercised."
+    },
+    {
+      "id": "F-03",
+      "feature": "Resume upload, parsing, skills, profiles, versions and exports",
+      "status": "IN PROGRESS",
+      "evidence": "Synthetic PDF upload, parsing, local embeddings and index activation pass with real services. Resume CRUD/version isolation regressions pass in isolated Neon; mocked AI in the broader backend suite is distinguished from real-model checks."
+    },
+    {
+      "id": "F-04",
+      "feature": "Live job sourcing, filters, deduplication, canonical storage and matching",
+      "status": "IN PROGRESS",
+      "evidence": "Actual dated public listings pass; index restoration, filter-before-limit, wildcard literals and location aliases pass focused checks. Default age is seven days for newly created criteria; existing preferences are preserved."
+    },
+    {
+      "id": "F-05",
+      "feature": "AI analysis, tailoring, cover letters and application preparation",
+      "status": "IN PROGRESS",
+      "evidence": "Actual local-model cover-letter and tailoring checks passed. Malformed output raises honest errors. Complete grounding/injection/context/failure matrix remains open."
+    },
+    {
+      "id": "F-06",
+      "feature": "Application records, statuses, history and saved jobs",
+      "status": "IN PROGRESS",
+      "evidence": "Atomic status/history updates and an explicitly approved synthetic application record passed. Duplicate workflow approval is rejected; peer history remains empty."
+    },
+    {
+      "id": "F-07",
+      "feature": "Copilot sessions, retrieval, history, streaming and cancellation",
+      "status": "IN PROGRESS",
+      "evidence": "Actual local Ollama answer, Neon history and peer isolation passed. Legacy respond entry point now uses the owned chat pipeline; streaming cancellation/failure matrix remains incomplete."
+    },
+    {
+      "id": "F-08",
+      "feature": "Interview questions, answers, hints, reports, resumption and voice",
+      "status": "IN PROGRESS",
+      "evidence": "Actual five-turn local-model interview, evaluation/report, session ownership and browser initiation passed. Retries use question index and request IDs. Microphone/provider behavior and full concurrency matrix remain unverified."
+    },
+    {
+      "id": "F-09",
+      "feature": "Workflow catalog, execution, approval and rejection",
+      "status": "IN PROGRESS",
+      "evidence": "Real two-user workflow approval, rejection and duplicate-approval checks passed, including a fresh rerun after fixture consolidation. Process-loss execution recovery remains open."
+    },
+    {
+      "id": "F-10",
+      "feature": "Background jobs, scheduling, notifications and recovery",
+      "status": "IN PROGRESS",
+      "evidence": "Four background operations now use a persistent Neon queue with leases, bounded interruption attempts and stale-worker fencing. Actual process-loss/concurrent-claim tests passed in isolated Neon. Frontend saved-task polling/reconnection was exercised; interrupted workflow-step execution remains separate."
+    },
+    {
+      "id": "F-11",
+      "feature": "Dashboard, analytics, preferences, feedback and health",
+      "status": "IN PROGRESS",
+      "evidence": "Real dashboard and readiness HTTP 200, local Swagger assets and feedback persistence checks pass. Simulated salary/chart data was removed. Verified salary data ingestion remains absent, so the UI displays unavailable."
+    },
+    {
+      "id": "F-12",
+      "feature": "README, screenshots and cleanup",
+      "status": "VERIFIED",
+      "evidence": "README contains project explanation, stack, setup/testing commands and six inspected real browser captures. Maintained Markdown is limited to README. All first-party test helpers are in qa_tests; removed files are listed in cleanup.json."
+    }
+  ],
+  "checks": {
+    "focused_backend": {
+      "result": "139 passed, 6 dependency deprecation warnings.",
+      "command": ".venv/bin/python -m pytest -c qa_tests/pytest.ini qa_tests/unit -q",
+      "dependencies": "Unit tests use controlled dependencies; no application database writes."
+    },
+    "frontend": {
+      "result": "17 passed; ESLint, production build and dependency checks passed.",
+      "command": "cd frontend && npm run lint && npm test && npm run build && npm audit --audit-level=moderate"
+    },
+    "guest_browser": {
+      "result": "6 passed; guest authentication responses intercepted; real Chrome rendering",
+      "command": ".venv/bin/python -m pytest qa_tests/browser/test_public_startup.py -q"
+    },
+    "real_services": {
+      "result": "5 passed, 66 dependency warnings in 469.65s",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns qa_tests/integration/test_live_neon_flows.py qa_tests/integration/test_live_ai_tools.py",
+      "dependencies": "Actual Neon migrations/storage, Chroma, local embeddings, Ollama and public job boards; no mocked inference."
+    },
+    "real_local_vectors": {
+      "result": "Passed with local cached model weights and isolated Chroma",
+      "command": "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python -m pytest qa_tests/integration/test_local_vectors.py -q"
+    },
+    "broader_backend": {
+      "result": "92 passed, 262 warnings in 3759.58s in the full November 16 run. Later matching, diagnostic and frontend refinements were checked with focused follow-ups.",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns qa_tests/backend",
+      "dependencies": "Real isolated Neon and Chroma; language model and embedding dependencies mocked by this suite.",
+      "reopened": [
+        "explanation fixture posting timestamp and real target-score calculation",
+        "full end-user journey interview request IDs/index and current 2FA/session contracts",
+        "credential masking assertion verifies credentials are absent",
+        "resume version test uses separate clients for separate accounts",
+        "scraper deduplication fixtures contain actual required source/date/URL fields"
+      ]
+    },
+    "two_user_browser": {
+      "result": "1 passed, 172 dependency warnings in 310.60s; populated and empty account routes, recent public jobs and real interview question",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns qa_tests/integration/test_live_browser.py"
+    },
+    "workflow_fixture_followup": {
+      "result": "1 passed, 23 dependency warnings in 127.37s after moving the shared real-service fixture to integration/conftest.py",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns qa_tests/integration/test_live_neon_flows.py::test_workflow_approval_rejection_and_two_user_isolation"
+    },
+    "screenshots": {
+      "result": "Six successful actual browser captures, refreshed November 15, 2026; dashboard and interview images inspected",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns --screenshots"
+    },
+    "integrated_run": {
+      "result": "Every runtime/integration check passed. Python static check exposed an imported-fixture redefinition; it was repaired and the static check passed. Source changed during the long run, so that aggregate report was correctly not marked passed. Final stable quick rounds are recorded separately.",
+      "evidence": "qa_tests/results/integrated-2026-11-15.json"
+    },
+    "final_quick_rounds": {
+      "command": ".venv/bin/python qa_tests/run_checks.py --repeat 2 --services",
+      "evidence": "qa_tests/results/latest.json",
+      "result": "Read the generated report for the actual final exit codes and source fingerprint."
+    },
+    "neon_dns_reconnect": {
+      "result": "2 passed, 23 dependency deprecation warnings in 125.99s",
+      "command": ".venv/bin/python qa_tests/tools/run_isolated_neon_checks.py --resolve-dns --reuse ai_platform_test_b4752e2e6864 qa_tests/integration/test_neon_dns_reconnect.py qa_tests/integration/test_live_neon_flows.py::test_workflow_approval_rejection_and_two_user_isolation",
+      "coverage": "Actual new Neon connections with system DNS failures forced and public DNS cache cleared between connections; isolated migration initialization; authenticated two-user workflow approval/rejection and transactional record persistence.",
+      "evidence": "/tmp/ai-platform-neon-dns-reconnect.log"
+    }
+  },
+  "remaining_acceptance": [
+    "Interrupted workflow-step recovery remains open; the new durable queue covers live search, role search, resume analysis and application drafts.",
+    "Complete the remaining feature-specific failure, cancellation, voice, accessibility and deployment acceptance matrix.",
+    "Repeat the entire extended browser scenario in one uninterrupted run when needed; its affected account-history phase passed a targeted follow-up after the network-change interruption.",
+    "Provider-backed email and container deployment were not exercised.",
+    "Salary ingestion still lacks verified salary fields; unavailable values remain explicitly unavailable."
+  ],
+  "safety": "Application rows and vector stores were preserved. Test writes used marked isolated Neon databases, temporary vector/upload directories and synthetic accounts. No database drops, real emails/employer submissions, credential rotations or deployments.",
+  "selected_verification_pass_completed": true,
+  "latest_repair": {
+    "date": "2026-11-15",
+    "issue": "Readiness repeatedly returned HTTP 503 after a normal backend restart.",
+    "observed": "GET /health/live returned 200; GET /health/ready returned 503 with socket error -3: Temporary failure in name resolution.",
+    "root_cause": "The system cannot resolve the configured Neon hostname. The previous PGHOSTADDR workaround was tied to one launcher invocation and absent after normal restarts.",
+    "changes": [
+      "Added opt-in NEON_DNS_FALLBACK configuration shared by API, scheduler worker and Alembic.",
+      "Saved NEON_DNS_FALLBACK=true in existing local environment files; all other parsed settings were preserved.",
+      "System resolution runs first on new physical connections; DNS failures can use HTTPS public DNS, with TTL-limited hostname-only caching and refreshed hostaddr.",
+      "Original Neon hostname, credentials and TLS settings are retained; authentication/database/TLS errors are not retried as DNS errors.",
+      "Launcher and isolated runner enable the shared fallback rather than permanently pinning one PGHOSTADDR value.",
+      "Moved readiness work to FastAPI's thread pool so slow DNS/database checks cannot block liveness."
+    ],
+    "verification": [
+      "13 focused DNS/readiness tests passed before the complete 100-test unit run.",
+      "Real application connection and required schema passed a read-only check without PGHOSTADDR.",
+      "Backend restarted with the documented normal launcher command and no --resolve-neon-dns flag.",
+      "Three consecutive GET /health/ready requests returned HTTP 200 and connected.",
+      "Actual isolated Neon reconnection under forced DNS failures and the two-user database workflow passed.",
+      "Final source checks and service watcher results are in qa_tests/results/latest.json."
+    ],
+    "configuration_scope": "Process-local project option. No system DNS files, database credentials or application rows were changed."
+  },
+  "current_pass": {
+    "date": "2026-11-16",
+    "scope": "Startup supervision, durable search/analysis/draft jobs, responsiveness, job catalog/index recovery, session/polling recovery and browser-account isolation.",
+    "repairs": [
+      "Added scripts/run_local.py: starts UI/API, waits for readiness, runs a watcher, restarts only owned child processes with a bounded crash budget.",
+      "Persisted four supported background operations with row-locked claims, renewable leases, at most three interruption attempts, fenced results and idempotent child-search IDs.",
+      "Moved 32 blocking database routes onto FastAPI worker threads.",
+      "Bound dead TCP waits and runtime SQL statements. Corrected the Neon pooler restriction by applying SET LOCAL per transaction rather than startup options.",
+      "Rebuilt missing Chroma job vectors from canonical Neon records without changing source verification dates.",
+      "Applied criteria before the 200-result SQL limit; escaped literal keyword wildcards; normalized city aliases; made new search defaults seven days.",
+      "Bound match-cache memory and lifetime, rejected stale writes after invalidation, and surfaced vector-service errors as failures.",
+      "Saved opaque task IDs with public listing context for page reload recovery; retried transient status outages without overlapping polls.",
+      "Distinguished session-restoration outages from invalid credentials and added an explicit connection retry.",
+      "Made diagnostics reachable after analysis; constrained AI-reported present skills and score bounds; bound private route-history results to the original account.",
+      "Preserved the added manual Ollama probe under qa_tests/manual/check_ollama_tags.py."
+    ],
+    "evidence": {
+      "backend_unit": "139 passed; qa_tests/results/backend-unit.log",
+      "broader_backend": "92 passed, 262 dependency warnings in 3759.58s; qa_tests/results/backend-full-final-2026-11-16.log. Later matching/diagnostics/UI refinements received focused follow-ups.",
+      "frontend": "17 passed; ESLint and production build passed.",
+      "queue_recovery": "3 passed in 149.26s with real isolated Neon and an executor stub for fault injection; qa_tests/results/job-queue-recovery-diagnostic.log.",
+      "real_services": "8 passed and one job-index consistency failure in the nine-case run; the failed feature was repaired and rerun successfully.",
+      "catalog_followup": "3 passed in 168.13s: synthetic large-catalog/literal-filter boundary cases and actual public live search; qa_tests/results/job-catalog-final.log.",
+      "browser_basic": "Earlier two-user real browser journey passed in 250.51s; qa_tests/results/browser-final-2026-11-16.log.",
+      "browser_extended": "Real reload/outage recovery, interview initiation, diagnostics, cover letters and application drafting passed before a final account-history page navigation hit ERR_NETWORK_CHANGED. That aggregate run remains recorded as failed; qa_tests/results/browser-resume-isolation-final.log.",
+      "browser_history_followup": "1 passed, 34 dependency warnings in 94.25s using actual two-account authentication and synthetic private history fixtures; qa_tests/results/browser-history-followup.log.",
+      "services": "Local launcher and its UI/API/watcher remain running. Read-only frontend, liveness, Neon readiness, local documentation assets and model checks passed."
+    }
+  }
+}

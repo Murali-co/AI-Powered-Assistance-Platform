@@ -4,6 +4,8 @@ import JobCard from '../components/JobCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { formatApiErrorMessage } from '../api/client';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { useDurableJob } from '../hooks/useDurableJob';
 
 const LOCATION_OPTIONS = [
   { value: 'Any', label: '🌍 Any Location' },
@@ -46,10 +48,8 @@ export const JobBoard = () => {
     hybrid: true,
     onsite: true,
   });
-  const [pollingJobId, setPollingJobId] = useState(null);
   const [lastScrapeTime, setLastScrapeTime] = useState(null);
   const [scrapeError, setScrapeError] = useState(null);
-  const pollingCleanupRef = useRef(null);
   const criteriaInitializedRef = useRef(false);
   const formEditedRef = useRef(false);
 
@@ -64,19 +64,20 @@ export const JobBoard = () => {
     saveCriteria,
     fetchJobs,
     isFetchingJobs,
-    pollJobStatus,
     saveJob,
   } = useJobs({ hoursOld, title, location, includeMatches: false });
 
-  // Cancel any active polling timer when component unmounts
-  useEffect(() => {
-    return () => {
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current();
-        pollingCleanupRef.current = null;
-      }
-    };
-  }, []);
+  const { user } = useAuth();
+  const { pendingJobId: pollingJobId, begin } = useDurableJob(user?.id, 'live_search', (result, _context, metadata) => {
+    const count = result?.count ?? result?.jobs_found ?? 0;
+    toast.success(`Successfully fetched ${count} job listings!`);
+    setLastScrapeTime(new Date(metadata?.completedAt || Date.now()).toLocaleString());
+    refetchJobs();
+  }, message => {
+    const safeMsg = message || 'Scraping task execution failed.';
+    toast.error(safeMsg);
+    setScrapeError(safeMsg);
+  });
 
   // Sync criteria on load
   useEffect(() => {
@@ -126,10 +127,6 @@ export const JobBoard = () => {
 
   const handleTriggerScrape = async () => {
     setScrapeError(null);
-    if (pollingCleanupRef.current) {
-      pollingCleanupRef.current();
-      pollingCleanupRef.current = null;
-    }
 
     try {
       const response = await fetchJobs({
@@ -142,36 +139,11 @@ export const JobBoard = () => {
       if (!jobId) {
         throw new Error('No job ID returned from scraping trigger.');
       }
-      setPollingJobId(jobId);
-
-      const cleanup = pollJobStatus(
-        jobId,
-        (result) => {
-          pollingCleanupRef.current = null;
-          const count = result?.count ?? 0;
-          const matchedCount = result?.matched_count;
-          const msg = (matchedCount !== undefined && matchedCount !== null)
-            ? `Fetched ${count} jobs, ${matchedCount} matched to your profile!`
-            : `Successfully fetched ${count} new job listings!`;
-          toast.success(msg);
-          setPollingJobId(null);
-          setLastScrapeTime(new Date().toLocaleString());
-          refetchJobs();
-        },
-        (errorMsg) => {
-          pollingCleanupRef.current = null;
-          const safeMsg = errorMsg || 'Scraping task execution failed.';
-          toast.error(safeMsg);
-          setScrapeError(safeMsg);
-          setPollingJobId(null);
-        }
-      );
-      pollingCleanupRef.current = cleanup;
+      begin(jobId);
     } catch (err) {
       const safeMsg = formatApiErrorMessage(err, 'Failed to trigger job scraper.');
       toast.error(safeMsg);
       setScrapeError(safeMsg);
-      setPollingJobId(null);
     }
   };
 

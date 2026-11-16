@@ -1,5 +1,5 @@
 """
-PostgreSQL-backed Background Job Lifecycle Manager for AI Powered Assistance Platform.
+PostgreSQL-backed Background Job Lifecycle Manager for AI-Powered-Assistance-Platform.
 
 Replaces process-local-only memory state with database-backed persistence:
 - Unique UUID job IDs
@@ -15,6 +15,7 @@ Replaces process-local-only memory state with database-backed persistence:
 import uuid
 import logging
 import threading
+from contextvars import ContextVar
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 from sqlalchemy import select, and_, or_, func, text
@@ -27,8 +28,10 @@ logger = logging.getLogger(__name__)
 # In-memory dictionary mirror for backwards compatibility with tests and fast local reads
 jobs_lock = threading.Lock()
 jobs_db: Dict[str, Dict[str, Any]] = {}
+active_worker = ContextVar('background_job_worker', default=None)
 
 VALID_STATUSES = {"pending", "processing", "completed", "failed", "cancelled"}
+MAX_MIRRORED_JOBS = 256
 
 
 def _sanitize_error(error: Optional[Any]) -> Optional[str]:
@@ -37,7 +40,7 @@ def _sanitize_error(error: Optional[Any]) -> Optional[str]:
         return None
     err_str = str(error).strip()
     # Mask any potential database connection strings or tokens if present
-    for secret_marker in ("postgres://", "postgresql://", "Bearer ", "password="):
+    for secret_marker in ("postgres://", "postgresql://", "postgresql+", "postgres+", "Bearer ", "password="):
         if secret_marker in err_str:
             err_str = err_str.split(secret_marker)[0] + "[REDACTED_CREDENTIAL]"
     return err_str[:1000]
@@ -69,8 +72,9 @@ def create_job(
         db.add(job)
         db.commit()
     except Exception as e:
-        logger.error("Failed to persist background job %s to database: %s", job_id, e)
+        logger.error("Failed to persist background job %s (%s)", job_id, type(e).__name__)
         db.rollback()
+        raise RuntimeError("Background job storage is unavailable.") from None
     finally:
         db.close()
 
@@ -88,6 +92,8 @@ def create_job(
             "completed_at": None,
             "expires_at": expires.isoformat()
         }
+        while len(jobs_db) > MAX_MIRRORED_JOBS:
+            jobs_db.pop(next(iter(jobs_db)))
 
     return job_id
 
@@ -114,8 +120,14 @@ def update_job(
     db: Session = SessionLocal()
     updated = False
     try:
-        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).first()
+        job = db.query(BackgroundJob).filter(BackgroundJob.id == job_id).with_for_update().first()
         if job:
+            if job.status in {"completed", "failed", "cancelled"}:
+                return False
+            if (isinstance(job.result, dict) and job.result.get('_dispatch_version') == 1
+                    and (not active_worker.get() or job.worker_id != active_worker.get())):
+                # A late/stale worker must never overwrite a replacement lease.
+                return False
             job.status = clean_status
             if clean_status == "processing" and not job.started_at:
                 job.started_at = now
@@ -132,10 +144,13 @@ def update_job(
         else:
             logger.warning("Background job %s not found in database during update.", job_id)
     except Exception as e:
-        logger.error("Error updating background job %s: %s", job_id, e)
+        logger.error("Error updating background job %s (%s)", job_id, type(e).__name__)
         db.rollback()
     finally:
         db.close()
+
+    if not updated:
+        return False
 
     # Update in-memory mirror
     with jobs_lock:
@@ -158,6 +173,9 @@ def update_job(
                 "completed_at": now.isoformat() if clean_status in ("completed", "failed") else None
             }
 
+    with jobs_lock:
+        while len(jobs_db) > MAX_MIRRORED_JOBS:
+            jobs_db.pop(next(iter(jobs_db)))
     return updated
 
 
@@ -173,7 +191,7 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
                 "id": job.id,
                 "job_id": job.id,
                 "status": job.status,
-                "result": job.result,
+                "result": None if isinstance(job.result, dict) and job.result.get('_dispatch_version') == 1 else job.result,
                 "error": job.error,
                 "user_id": job.user_id,
                 "job_type": job.job_type,
@@ -184,9 +202,8 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
             }
         return None
     except Exception as e:
-        logger.error("Error reading background job %s from database: %s", job_id, e)
-        with jobs_lock:
-            return jobs_db.get(job_id)
+        logger.error("Error reading background job %s (%s)", job_id, type(e).__name__)
+        raise RuntimeError("Background job storage is unavailable.") from None
     finally:
         db.close()
 
@@ -200,7 +217,7 @@ def get_user_job(job_id: str, user_id: int) -> Optional[Dict[str, Any]]:
     if not job:
         return None
     owner_id = job.get("user_id")
-    if owner_id is not None and owner_id != user_id:
+    if owner_id != user_id:
         return None
     return job
 
@@ -209,21 +226,17 @@ def claim_next_job(worker_id: str, job_types: Optional[List[str]] = None) -> Opt
     """
     Multi-worker-safe job claiming using PostgreSQL row locking:
     SELECT FOR UPDATE SKIP LOCKED ensures only one worker claims a job.
-    Falls back gracefully on SQLite.
     """
     db: Session = SessionLocal()
     now = datetime.now(timezone.utc)
     try:
-        query = db.query(BackgroundJob).filter(BackgroundJob.status == "pending")
+        from app.utils.job_queue import OPERATIONS
+        query = db.query(BackgroundJob).filter(BackgroundJob.status == "pending",
+            or_(BackgroundJob.job_type.is_(None), BackgroundJob.job_type.notin_(OPERATIONS)))
         if job_types:
             query = query.filter(BackgroundJob.job_type.in_(job_types))
 
-        # Check if database supports FOR UPDATE SKIP LOCKED (PostgreSQL)
-        bind = db.get_bind()
-        if bind and bind.dialect.name == "postgresql":
-            job = query.order_by(BackgroundJob.created_at.asc()).with_for_update(skip_locked=True).first()
-        else:
-            job = query.order_by(BackgroundJob.created_at.asc()).first()
+        job = query.order_by(BackgroundJob.created_at.asc()).with_for_update(skip_locked=True).first()
 
         if not job:
             return None
@@ -266,8 +279,10 @@ def recover_pending_or_stale_jobs(stale_minutes: int = 30) -> int:
 
     db: Session = SessionLocal()
     try:
+        from app.utils.job_queue import OPERATIONS
         stale_jobs = db.query(BackgroundJob).filter(
             BackgroundJob.status == "processing",
+            or_(BackgroundJob.job_type.is_(None), BackgroundJob.job_type.notin_(OPERATIONS)),
             or_(
                 BackgroundJob.started_at < cutoff,
                 and_(BackgroundJob.started_at.is_(None), BackgroundJob.created_at < cutoff)

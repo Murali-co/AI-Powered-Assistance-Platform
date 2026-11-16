@@ -14,6 +14,8 @@ from app.models.schemas import SkillGapRequest, CoverLetterRequest, CoverLetterR
 from app.db.models import ResumeVersion
 from app.utils.bg_jobs import create_job, update_job, get_job
 from app.jobs.matcher import JobMatcher
+from app.jobs.scraper import JobScraper
+from app.config import settings
 from app.llm.resume_tailor import ResumeTailorEngine
 from app.utils.limiter import limiter
 from app.db.session import SessionLocal
@@ -22,6 +24,8 @@ import os
 import json
 import asyncio
 import logging
+import uuid
+from app.utils.job_queue import enqueue, run_job
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +56,8 @@ async def _trigger_role_based_live_search(user_id: int, roles: List[str], locati
         )
 
     scraped_roles: List[str] = []
-    for role in roles[:3]:
+    criteria = DBManager.get_criteria(user_id) or {}
+    for role in ([criteria['title']] if criteria.get('title') else roles[:3]):
         try:
             jobs = await run_in_threadpool(
                 JobScraper.scrape,
@@ -106,20 +111,14 @@ async def run_analysis_task(job_id: str, user_id: int, target_role: str):
         cover_letter = await CoverLetterGenerator.generate(resume_text, target_role, tone="formal")
 
         suggested_roles = [target_role]
-        if isinstance(gap_results, dict):
-            for value in [gap_results.get("missing_skills", []), gap_results.get("recommendations", [])]:
-                if isinstance(value, list):
-                    for item in value:
-                        if isinstance(item, str) and item.strip():
-                            suggested_roles.append(item.strip())
-        if len(suggested_roles) < 3:
-            suggested_roles.extend(["Software Engineer", "Backend Developer", "Full Stack Developer"])
 
         fetch_job_ids = []
-        for role in suggested_roles[:3]:
-            fetch_job_id = create_job(user_id=user_id)
+        criteria = await run_in_threadpool(DBManager.get_criteria, user_id) or {}
+        for role in [criteria.get('title') or target_role]:
+            fetch_job_id = await run_in_threadpool(enqueue, user_id, 'role_search',
+                {'title': role, 'location': criteria.get('location') or 'Any', 'hours_old': criteria.get('hours_old') or 168},
+                str(uuid.uuid5(uuid.NAMESPACE_URL, f'ai-platform-analysis-search:{job_id}:{role}')))
             fetch_job_ids.append(fetch_job_id)
-            asyncio.create_task(_run_role_fetch_task(fetch_job_id, user_id, role, location="Any", hours_old=720))
 
         result = {
             "skill_gap": gap_results,
@@ -132,7 +131,6 @@ async def run_analysis_task(job_id: str, user_id: int, target_role: str):
         update_job(job_id, "completed", result=result)
     except __import__('asyncio').CancelledError:
         print(f"Resume analysis task {job_id} was cancelled due to server shutdown.")
-        update_job(job_id, "failed", error="Server shutdown during analysis.")
         raise
     except Exception as e:
         print(f"Error in background resume analysis task: {e}")
@@ -164,19 +162,24 @@ def _process_resume_pipeline(file_bytes: bytes, filename: str, user_id: int) -> 
     extracted_skills_data = SkillExtractor.extract_skills(cleaned_full_text, cleaned_sections)
     skills_list = [item["skill"] for item in extracted_skills_data]
     
-    # Save to vector DB
-    ProfileStore.store_profile(
-        user_id=user_id,
-        resume_text=cleaned_full_text,
-        skills=skills_list
-    )
-    
-    # Save historical version
-    DBManager.save_resume_version(
-        user_id=user_id,
-        resume_text=cleaned_full_text,
-        label=f"Resume Upload: {filename}"
-    )
+    # Save canonical version & index via lifecycle (Phase 2 atomic outbox pattern)
+    db = SessionLocal()
+    try:
+        from app.resume.lifecycle import save_canonical_resume, index_resume_version
+        version = save_canonical_resume(
+            db=db,
+            user_id=user_id,
+            resume_text=cleaned_full_text,
+            skills=skills_list,
+            version_label=f"Resume Upload: {filename}",
+            structured_data={"skills": skills_list, "filename": filename}
+        )
+        # Attempt immediate indexing through outbox
+        indexed_ok = index_resume_version(db, version.id)
+        if not indexed_ok:
+            logger.warning(f"Chroma indexing failed for resume version {version.id}; queued in outbox for worker retry.")
+    finally:
+        db.close()
     
     return {
         "skills": skills_list,
@@ -272,18 +275,14 @@ async def analyze_resume(
         )
 
     # Create job id and spin off background task
-    job_id = create_job(user_id=current_user["id"])
-    background_tasks.add_task(
-        run_analysis_task,
-        job_id,
-        current_user["id"],
-        req_body.target_role
-    )
+    job_id = await run_in_threadpool(enqueue, current_user['id'], 'resume_analysis',
+        {'target_role': req_body.target_role})
+    background_tasks.add_task(run_job, job_id)
     
     return {"job_id": job_id, "status": "pending"}
 
 @router.get("/profile")
-async def get_profile(current_user: dict = Depends(get_current_user)):
+def get_profile(current_user: dict = Depends(get_current_user)):
     profile = ProfileStore.get_profile(current_user["id"])
     if not profile:
         raise HTTPException(
@@ -314,25 +313,28 @@ Resume:
 
 Extracted Skills: {', '.join(skills[:20]) if skills else 'Not extracted yet'}
 
-Return ONLY a JSON array of exactly 5 role strings. No explanation, no markdown.
-Example: ["Software Engineer", "Backend Developer", "Python Developer", "API Engineer", "Data Engineer"]
+Return ONLY a JSON object with a "roles" array containing up to 5 job title strings.
+Use only role names, without candidate names, contact details, instructions or explanations.
 """
     
     try:
-        result = await OllamaClient.generate(prompt, format="json", think=False)
+        schema = {'type': 'object', 'properties': {'roles': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1, 'maxItems': 5}}, 'required': ['roles']}
+        result = await OllamaClient.generate(prompt, format=schema, think=False, context_window=2048, max_tokens=128, model_name=settings.ROLE_SUGGESTION_OLLAMA_MODEL)
         result = result.strip()
         # Clean markdown fences if present
         if "```" in result:
             result = result.split("```")[1].replace("json", "").strip()
         roles = json.loads(result)
+        if isinstance(roles, dict):
+            roles = roles.get('roles')
         if not isinstance(roles, list):
             raise ValueError("Not a list")
-        roles = [str(r).strip() for r in roles[:5] if r]
+        roles = [r.strip() for r in roles[:5] if isinstance(r, str) and r.strip() and len(r) <= 120 and '@' not in r and '\n' not in r]
+        if not roles:
+            raise ValueError('No valid role titles')
     except Exception as e:
         print(f"Error suggesting roles: {e}")
-        # Fallback based on skills
-        roles = ["Software Engineer", "Backend Developer", "Full Stack Developer",
-                 "Python Developer", "API Developer"]
+        raise HTTPException(503, 'Local AI could not generate valid role suggestions. Your search criteria were preserved.') from None
 
     try:
         criteria = DBManager.get_criteria(current_user["id"]) or {}
@@ -346,14 +348,6 @@ Example: ["Software Engineer", "Backend Developer", "Python Developer", "API Eng
             metadata={"suggested_roles": roles}
         )
         await _trigger_role_based_live_search(current_user["id"], roles, location=location, hours_old=hours_old)
-        DBManager.save_criteria(
-            user_id=current_user["id"],
-            title=roles[0],
-            location=location,
-            is_remote=location.lower() == "remote",
-            job_type=criteria.get("job_type"),
-            hours_old=hours_old,
-        )
     except Exception as exc:
         print(f"Resume-role live search could not run: {exc}")
     
@@ -419,7 +413,7 @@ async def tailor_resume(
     return tailored_result
 
 @router.post("/select-version")
-async def select_resume_version(
+def select_resume_version(
     version_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -438,24 +432,28 @@ class ProfileEditRequest(BaseModel):
     resume_text: str
 
 @router.post("/profile/edit")
-async def edit_profile(
+def edit_profile(
     req: ProfileEditRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    ProfileStore.store_profile(
-        user_id=current_user["id"],
-        resume_text=req.resume_text,
-        skills=req.skills
-    )
-    DBManager.save_resume_version(
-        user_id=current_user["id"],
-        resume_text=req.resume_text,
-        label="Manual Edit via Dashboard"
-    )
+    db = SessionLocal()
+    try:
+        from app.resume.lifecycle import save_canonical_resume, index_resume_version
+        version = save_canonical_resume(
+            db=db,
+            user_id=current_user["id"],
+            resume_text=req.resume_text,
+            skills=req.skills,
+            version_label="Manual Edit via Dashboard",
+            structured_data={"skills": req.skills}
+        )
+        index_resume_version(db, version.id)
+    finally:
+        db.close()
     return {"message": "Profile updated successfully."}
 
 @router.get("/versions")
-async def get_resume_versions(current_user: dict = Depends(get_current_user)):
+def get_resume_versions(current_user: dict = Depends(get_current_user)):
     return DBManager.get_resume_versions(current_user["id"])
 
 
@@ -466,7 +464,7 @@ class CreateResumeVersionRequest(BaseModel):
 
 
 @router.post("/versions/create")
-async def create_resume_version(
+def create_resume_version(
     req: CreateResumeVersionRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -501,7 +499,7 @@ async def create_resume_version(
 
 
 @router.get("/versions/{version_id}/preview")
-async def preview_resume_version(
+def preview_resume_version(
     version_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -531,7 +529,7 @@ async def preview_resume_version(
 @router.post("/versions/{version_id}/compare")
 @router.get("/versions/compare")
 @router.post("/versions/compare")
-async def compare_resume_versions(
+def compare_resume_versions(
     version_id: Optional[int] = None,
     with_version_id: Optional[int] = None,
     id1: Optional[int] = None,
@@ -612,7 +610,7 @@ async def compare_resume_versions(
 
 
 @router.delete("/versions/{version_id}")
-async def delete_resume_version(
+def delete_resume_version(
     version_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -646,7 +644,7 @@ async def delete_resume_version(
 
 
 @router.get("/versions/{version_id}/download")
-async def download_resume_version(
+def download_resume_version(
     version_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -668,7 +666,7 @@ async def download_resume_version(
 
 
 @router.post("/versions/restore/{version_id}")
-async def restore_resume_version(
+def restore_resume_version(
     version_id: int,
     current_user: dict = Depends(get_current_user)
 ):

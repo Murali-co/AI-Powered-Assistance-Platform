@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 import json
 import re
 from typing import List, Dict, Any
@@ -13,16 +14,23 @@ class SkillGapAnalyzer:
             "You MUST respond ONLY in valid JSON. Do not include any text before or after the JSON payload."
         )
 
-        # Truncate to reduce token usage
-        skills_str = ", ".join(skills[:30])  # cap at 30 skills
+        known = {skill.strip().casefold(): skill.strip() for skill in skills if isinstance(skill, str) and skill.strip()}
+        if len(known) > 100 or any(len(skill) > 100 for skill in known.values()):
+            raise HTTPException(422, 'Use at most 100 concise skill labels for one analysis.')
+        skills_str = json.dumps(list(known.values()))
+        schema = SkillGapResponse.model_json_schema()
+        if known:
+            schema['properties']['present_skills']['items'] = {'type': 'string', 'enum': list(known.values())}
+        else:
+            schema['properties']['present_skills']['maxItems'] = 0
 
         prompt = f"""
 Candidate's Current Skills: {skills_str}
 Target Job Role: {target_role}
 
 Please analyze the skill gap and return a JSON object with the following fields:
-1. "present_skills": list of skills the candidate already possesses that are highly relevant to the target role.
-2. "missing_skills": list of critical skills/technologies/methodologies required for the target role that the candidate currently lacks.
+1. "present_skills": select only exact labels from Candidate's Current Skills. Never infer qualifications or experience.
+2. "missing_skills": list of critical skills/technologies/methodologies required for the target role that the candidate currently lacks. Never include a listed current skill here.
 3. "skill_score": an integer from 0 to 100 representing how closely the candidate's current skills match the target role.
 4. "recommendations": bullet points suggesting how the candidate can bridge the skill gap (e.g. projects, certifications).
 5. "learning_resources": high-quality resource suggestions (e.g., online courses, books, documentation links).
@@ -43,7 +51,7 @@ Return ONLY valid JSON.
             raw_response = await OllamaClient.generate(
                 prompt=prompt,
                 system=system_prompt,
-                format="json"
+                format=schema
             )
             
             # Clean response if LLM added markdown wrappers
@@ -58,15 +66,11 @@ Return ONLY valid JSON.
             
             # Validate with Pydantic
             validated = SkillGapResponse(**data)
+            if any(skill.strip().casefold() not in known for skill in validated.present_skills):
+                raise ValueError('Model claimed a skill absent from the candidate profile.')
+            if any(skill.strip().casefold() in known for skill in validated.missing_skills):
+                raise ValueError('Model marked an existing candidate skill as missing.')
             return validated.model_dump() if hasattr(validated, "model_dump") else validated.dict()
             
-        except Exception as e:
-            print(f"Error parsing skill gap JSON from Ollama: {e}")
-            # Fallback response in case of parsing failures
-            return {
-                "present_skills": [s for s in skills if s.lower() in target_role.lower()] or skills[:3],
-                "missing_skills": ["Cloud Architecture", "System Design", "Advanced " + target_role],
-                "skill_score": 50,
-                "recommendations": ["Conduct deep research on target technologies for " + target_role, "Work on building a complete side project."],
-                "learning_resources": ["Explore tutorials and courses related to " + target_role]
-            }
+        except Exception:
+            raise HTTPException(503, 'Local AI could not produce a valid skill-gap analysis. Please retry.') from None

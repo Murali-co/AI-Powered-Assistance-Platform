@@ -63,3 +63,33 @@ async def test_readiness_dns_delay_does_not_block_liveness(monkeypatch):
             release.set()
             readiness = await request
         assert readiness.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_job_status_storage_does_not_freeze_the_api(monkeypatch):
+    import importlib
+    module = importlib.import_module('app.jobs.router')
+    app = FastAPI()
+    app.include_router(module.router)
+    app.dependency_overrides[module.get_current_user] = lambda: {'id': 42}
+    entered, release = threading.Event(), threading.Event()
+    def slow_status(_):
+        entered.set()
+        release.wait(timeout=2)
+        return {'id': 'job', 'user_id': 42, 'status': 'processing'}
+    monkeypatch.setattr(module, 'get_job', slow_status)
+    @app.get('/ping')
+    async def ping():
+        return {'ok': True}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        pending = asyncio.create_task(client.get('/jobs/job/status'))
+        try:
+            started = monotonic()
+            while not entered.is_set() and monotonic() - started < 1:
+                await asyncio.sleep(0.01)
+            assert entered.is_set()
+            assert (await client.get('/ping')).status_code == 200
+            assert not pending.done()
+        finally:
+            release.set()
+            assert (await pending).status_code == 200

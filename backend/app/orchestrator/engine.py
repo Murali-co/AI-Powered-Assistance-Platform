@@ -19,7 +19,7 @@ class WorkflowOrchestrator:
         plan = self.planner.build_plan(task)
         return TaskResult(
             task_id=task.task_id,
-            status=TaskStatus.RUNNING,
+            status=TaskStatus.PLANNED,
             summary=f"Planned {len(plan.steps)} steps for task '{task.prompt}'.",
             details={"plan": [step.__dict__ for step in plan.steps]},
         )

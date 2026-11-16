@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 import requests
 
 from app.jobs.sources.adzuna import AdzunaSource
+from app.jobs.dates import posted_iso
+from app.jobs.filter import JobFilter
 
 # Import pandas and numpy for handling jobspy data
 try:
@@ -196,7 +198,8 @@ class JobScraper:
                         "search_term": search_term,
                         "results_wanted": max(10, results_wanted // len(sites_to_try)),
                         "hours_old": hours_old,
-                        "country": country,  # Use resolved country for all sites
+                        "country_indeed": country,
+                        'fetch_description': True,
                     }
 
                     # Pass location only if we have a specific city/region
@@ -281,10 +284,10 @@ class JobScraper:
                         # Detect job type from description/location
                         job_type = "onsite"  # default
                         combined_text = f"{location_val} {description}".lower()
-                        if "remote" in combined_text or "work from home" in combined_text or "wfh" in combined_text:
-                            job_type = "remote"
-                        elif "hybrid" in combined_text:
+                        if "hybrid" in combined_text:
                             job_type = "hybrid"
+                        elif str(row.get('is_remote')).strip().lower() in {'true', '1'} or "remote" in combined_text or "work from home" in combined_text or "wfh" in combined_text:
+                            job_type = "remote"
 
                         jobs_list.append({
                             "title": title,
@@ -321,22 +324,7 @@ class JobScraper:
 
     @staticmethod
     def _normalize_posted_at(value: Optional[str]) -> str:
-        if value is None:
-            return ""
-        text = str(value).strip()
-        if not text or text.lower() in {"nan", "recently", "just now"}:
-            return datetime_now_str()
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        try:
-            dt = __import__("datetime").datetime.fromisoformat(text)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=__import__("datetime").timezone.utc)
-            return dt.astimezone(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z")
-        except ValueError:
-            if any(prefix in text.lower() for prefix in ["hour", "day", "week", "month"]):
-                return datetime_now_str()
-            return text
+        return posted_iso(value)
 
     @classmethod
     def scrape_fallback(cls, search_term: str, location: str) -> List[Dict[str, Any]]:
@@ -360,7 +348,7 @@ class JobScraper:
         Full scrape pipeline with deduplication and logging.
         """
         print(f"\n{'#'*60}")
-        print(f"# AI POWERED ASSISTANCE PLATFORM SCRAPE PIPELINE START")
+        print('# AI-Powered-Assistance-Platform SCRAPE PIPELINE START')
         print(f"# Term: '{search_term}', Location: '{location}'")
         print(f"# Results wanted: {results_wanted}, Max age: {hours_old}h")
         print(f"{'#'*60}\n")
@@ -384,6 +372,12 @@ class JobScraper:
             print("\nStep 1d: No live results from available sources. Returning empty list.")
             return []
 
+        results = JobFilter.filter_jobs(results, hours_old=hours_old)
+        for job in results:
+            job['posted_at'] = posted_iso(job.get('posted_at'))
+            job['live_verified'] = True
+        results = JobFilter.live_jobs(results, hours_old)
+        results = JobFilter.filter_jobs(results, hours_old=hours_old)
         # Step 2/4: Deduplicate
         print(f"\nStep 2/4: Deduplicating {len(results)} jobs...")
         seen_hashes = set()

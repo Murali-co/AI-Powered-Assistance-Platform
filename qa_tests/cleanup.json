@@ -1,0 +1,23 @@
+{
+  "removed_obsolete_files": [
+    "docs/AUTHENTICATION.md",
+    "docs/repair-progress.md",
+    "scripts/generate_docx_reports.py",
+    "scripts/generate_inventory_xlsx.py",
+    "scripts/generate_markdown_reports.py",
+    "scripts/generate_member_readmes.py",
+    "scripts/package_final_members.py",
+    "scripts/zip_final_packages.py",
+    "scripts/purge_fake_jobs.py",
+    "docs/images/job_board.png",
+    "docs/images/career_copilot.png",
+    "docs/images/dashboard_overview.png",
+    "docs/images/interview_coach.png",
+    "docs/images/market_intelligence.png",
+    "docs/acceptance-ledger.json"
+  ],
+  "removed_empty_directories": [
+    "docs/images"
+  ],
+  "preserved": "Application code, migrations, environment files, uploads, relational records, vector stores, dependencies and third-party licenses."
+}

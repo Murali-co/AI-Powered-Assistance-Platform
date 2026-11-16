@@ -4,13 +4,16 @@ import { useJobs } from '../hooks/useJobs';
 import CoverLetterEditor from '../components/CoverLetterEditor';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { ownedRouteState } from '../utils/pendingTasks';
 
 export const ApplyAssistant = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { submitApplication, isSubmittingApp } = useJobs();
 
-  const data = location.state;
+  const { user } = useAuth();
+  const data = ownedRouteState(location.state, user?.id);
   const job = data?.job;
   const pkg = data?.package;
   const [coverLetter, setCoverLetter] = useState(pkg?.cover_letter || '');

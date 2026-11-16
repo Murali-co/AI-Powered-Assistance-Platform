@@ -52,4 +52,24 @@ describe('background task polling', () => {
     expect(fail).toHaveBeenCalledTimes(1);
     expect(fail.mock.calls[0][0]).toContain('timed out');
   });
+
+  it('reconnects after a temporary API restart without overlapping requests', async () => {
+    const unavailable = Object.assign(new Error('Unavailable'), { response: { status: 503 } });
+    const request = vi.fn().mockRejectedValueOnce(unavailable).mockResolvedValue({ status: 'completed', result: { count: 2 } });
+    const done = vi.fn();
+    const fail = vi.fn();
+    pollJob(request, done, fail, 10);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(done).toHaveBeenCalledWith({ count: 2 });
+    expect(fail).not.toHaveBeenCalled();
+  });
+
+  it('bounds repeated outages while retaining the right to resume a saved task', async () => {
+    const request = vi.fn().mockRejectedValue(Object.assign(new Error('Offline'), { isAxiosError: true }));
+    const fail = vi.fn();
+    pollJob(request, vi.fn(), fail, 10);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(request).toHaveBeenCalledTimes(5);
+    expect(fail.mock.calls[0][1]).toEqual({ retryable: true });
+  });
 });

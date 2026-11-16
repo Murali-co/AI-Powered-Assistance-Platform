@@ -1,119 +1,41 @@
 import logging
 import re
+import socket
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
+from app.db.urls import build_engine_url, mask_database_url, connection_args, configure_statement_timeout
+from app.db.dns import configure_neon_dns
+
+# Prefer IPv4 over unreachable IPv6 routes to prevent connection timeouts with dual-stack hosts (e.g. Neon)
+_orig_getaddrinfo = socket.getaddrinfo
+
+def _ipv4_preferred_getaddrinfo(*args, **kwargs):
+    res = _orig_getaddrinfo(*args, **kwargs)
+    v4 = [r for r in res if r[0] == socket.AF_INET]
+    return v4 if v4 else res
+
+socket.getaddrinfo = _ipv4_preferred_getaddrinfo
 
 logger = logging.getLogger(__name__)
 
 
-def mask_database_url(url: str) -> str:
-    """Mask credentials in database URL to prevent exposing secrets in logs/errors."""
-    if not url:
-        return ""
-    # Mask password between ':' and '@'
-    return re.sub(r":([^:@]+)@", r":****@", url)
-
-
-def resolve_database_hostaddr(url: str) -> str:
-    """
-    Ensure reliable host resolution for Neon PostgreSQL databases.
-    If local/ISP DNS fails to resolve a Neon hostname (e.g. returning REFUSED or NXDOMAIN),
-    resolves the endpoint via authoritative public DNS (8.8.8.8, 1.1.1.1) and injects
-    'hostaddr' into the connection URL without modifying the original host header (preserving TLS SNI).
-    """
-    if not url or url.startswith("sqlite") or "hostaddr=" in url:
-        return url
-
-    try:
-        import urllib.parse
-        import socket
-        parsed = urllib.parse.urlsplit(url)
-        hostname = parsed.hostname
-        if not hostname or hostname in ("localhost", "127.0.0.1", "::1"):
-            return url
-
-        # 1. Test standard system DNS resolution first
-        try:
-            port = parsed.port or 5432
-            socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
-            return url  # System DNS functions normally
-        except socket.gaierror as e:
-            logger.info("System DNS failed to resolve %s (%s). Attempting fallback DNS resolution...", hostname, e)
-
-        # 2. Query public fallback DNS resolvers (Google 8.8.8.8, Cloudflare 1.1.1.1)
-        try:
-            import dns.resolver
-            resolver = dns.resolver.Resolver(configure=False)
-            resolver.nameservers = ["8.8.8.8", "1.1.1.1", "8.8.4.4"]
-            resolver.timeout = 3.0
-            resolver.lifetime = 3.0
-            answers = resolver.resolve(hostname, "A")
-            if answers:
-                resolved_ip = answers[0].address
-                logger.info("Resolved database host %s -> %s via fallback DNS", hostname, resolved_ip)
-                separator = "&" if "?" in url else "?"
-                return f"{url}{separator}hostaddr={resolved_ip}"
-        except Exception as dns_err:
-            logger.warning("Fallback DNS resolution failed for %s: %s", hostname, dns_err)
-    except Exception as parse_err:
-        logger.warning("Error parsing database URL for host resolution: %s", parse_err)
-
-    return url
-
-
-def build_engine_url(raw_url: str) -> str:
-    """Validate and configure PostgreSQL/Neon connection string with proper driver and TLS."""
-    if not raw_url:
-        raise ValueError(
-            "DATABASE_URL is not set. Please configure DATABASE_URL in your environment or backend/.env file."
-        )
-    url = raw_url.strip()
-
-    # Prefer psycopg v3 driver if plain postgresql:// is specified
-    if url.startswith("postgresql://") and "+" not in url:
-        try:
-            import psycopg  # type: ignore
-            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-        except ImportError:
-            pass
-
-    # Ensure required TLS/SSL mode for Neon and cloud-hosted PostgreSQL instances
-    if ("neon.tech" in url or "amazonaws.com" in url) and "sslmode" not in url:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}sslmode=require"
-
-    # Ensure reliable host resolution if local DNS is filtered or broken
-    url = resolve_database_hostaddr(url)
-
-    return url
-
-
 ENGINE_URL = build_engine_url(settings.DATABASE_URL)
-
-is_sqlite = ENGINE_URL.startswith("sqlite")
 is_neon_pooled = "pooler" in ENGINE_URL or "-pooler" in ENGINE_URL
 
-if is_sqlite:
-    engine = create_engine(
-        ENGINE_URL,
-        connect_args={"check_same_thread": False, "timeout": 30},
-        future=True,
-    )
-else:
-    # Optimized for PostgreSQL/Neon startup behavior:
-    # - fail fast instead of hanging indefinitely during server boot
-    # - keep a small pool/timeout budget so app startup can continue if the DB is temporarily unreachable
-    engine = create_engine(
-        ENGINE_URL,
-        pool_size=10,
-        max_overflow=20,
-        pool_recycle=300,
-        pool_pre_ping=True,
-        pool_timeout=5,
-        connect_args={"connect_timeout": 5},
-        future=True,
-    )
+# Sized connection pool across API & worker processes for Neon PostgreSQL
+engine = create_engine(
+    ENGINE_URL,
+    pool_size=10,
+    max_overflow=5,
+    pool_recycle=300,
+    pool_pre_ping=True,
+    pool_timeout=30,
+    connect_args=connection_args(ENGINE_URL),
+    future=True,
+)
+configure_neon_dns(engine, settings.NEON_DNS_FALLBACK)
+configure_statement_timeout(engine, settings.DATABASE_STATEMENT_TIMEOUT_MS)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
@@ -155,7 +77,7 @@ def check_database_connection() -> dict:
     Never exposes raw credentials.
     """
     from sqlalchemy import text, inspect
-    db_type = "sqlite" if ENGINE_URL.startswith("sqlite") else "postgresql"
+    db_type = "postgresql"
     masked = mask_database_url(ENGINE_URL)
     try:
         with engine.connect() as conn:

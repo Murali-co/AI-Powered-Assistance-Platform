@@ -33,10 +33,24 @@ class ChromaDBClient:
                             chroma_product_telemetry_impl="app.vector_db.telemetry.NoOpTelemetry",
                             chroma_telemetry_impl="app.vector_db.telemetry.NoOpTelemetry"
                         )
-                        cls._client = chromadb.PersistentClient(
-                            path=settings.CHROMA_PATH,
-                            settings=chroma_settings
-                        )
+                        chroma_host = getattr(settings, "CHROMA_HOST", None)
+                        if chroma_host:
+                            headers = {}
+                            auth_token = getattr(settings, "CHROMA_AUTH_TOKEN", None)
+                            if auth_token:
+                                headers["Authorization"] = f"Bearer {auth_token}"
+                            cls._client = chromadb.HttpClient(
+                                host=chroma_host,
+                                port=getattr(settings, "CHROMA_PORT", 8000),
+                                headers=headers,
+                                settings=chroma_settings
+                            )
+                            logger.info(f"Connected to remote ChromaDB server at {chroma_host}:{getattr(settings, 'CHROMA_PORT', 8000)}")
+                        else:
+                            cls._client = chromadb.PersistentClient(
+                                path=settings.CHROMA_PATH,
+                                settings=chroma_settings
+                            )
                         # Verify database health non-destructively
                         collections = cls._client.list_collections()
                         for col in collections:
@@ -81,17 +95,23 @@ class ChromaDBClient:
     @classmethod
     def get_collection(cls, name: str):
         """
-        Idempotent collection getter that avoids triggering internal ChromaDB
-        'Collection X is not created' warning logs by checking existing collections first.
+        Idempotent collection getter that configures cosine distance space
+        and records vector collection schema attributes.
         """
         client = cls.get_client()
+        collection_metadata = {
+            "hnsw:space": "cosine",
+            "embedding_model": "all-MiniLM-L6-v2",
+            "dimension": 384,
+            "owner_enforced": True
+        }
         try:
             existing = {c.name for c in client.list_collections()}
             if name in existing:
                 return client.get_collection(name=name)
-            return client.create_collection(name=name)
+            return client.create_collection(name=name, metadata=collection_metadata)
         except Exception:
-            return client.get_or_create_collection(name=name)
+            return client.get_or_create_collection(name=name, metadata=collection_metadata)
 
     @classmethod
     def _format_query_results(cls, results: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -115,8 +135,10 @@ class ChromaDBClient:
         where: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Semantic query over user resume sections, isolated by user_id.
+        Semantic query over user resume sections, strictly isolated by user_id.
         """
+        if not user_id:
+            raise ValueError("Tenant ownership violation: user_id is required to query profile vectors.")
         collection = cls.get_collection("user_profiles")
         total_count = collection.count()
         if total_count == 0:

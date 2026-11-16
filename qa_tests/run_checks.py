@@ -51,6 +51,7 @@ def run_round(integration=False, services=False, backend_suite=False, resolve_dn
     commands = [
         ('backend-unit', [python, '-m', 'pytest', '-c', 'qa_tests/pytest.ini', 'qa_tests/unit', '-q'], ROOT),
         ('python-static', [python, '-m', 'ruff', 'check', '--select', 'E9,F63,F7,F82,F811,F601', 'backend/app', 'backend/alembic', 'qa_tests', 'scripts'], ROOT),
+        ('python-definitions', [python, 'qa_tests/tools/check_python_definitions.py'], ROOT),
         ('python-dependencies', [python, '-m', 'pip', 'check'], ROOT),
         ('frontend-lint', ['npm', 'run', 'lint'], ROOT / 'frontend'),
         ('frontend-unit', ['npm', 'test'], ROOT / 'frontend'),
@@ -67,8 +68,9 @@ def run_round(integration=False, services=False, backend_suite=False, resolve_dn
     if integration:
         commands.extend([
             ('real-local-vectors', [python, '-m', 'pytest', 'qa_tests/integration/test_local_vectors.py', '-q'], ROOT),
+            ('real-queue-recovery', neon_runner + ['qa_tests/integration/test_job_queue_recovery.py', 'qa_tests/integration/test_canonical_job_filters.py'], ROOT),
             ('real-services', neon_runner + ['qa_tests/integration/test_neon_dns_reconnect.py', 'qa_tests/integration/test_live_neon_flows.py', 'qa_tests/integration/test_live_ai_tools.py'], ROOT),
-            ('real-browser', neon_runner + ['qa_tests/integration/test_live_browser.py'], ROOT),
+            ('real-browser', neon_runner + ['qa_tests/integration/test_live_browser.py', 'qa_tests/integration/test_browser_history_isolation.py'], ROOT),
         ])
     if services:
         commands.append(('running-services', [python, 'qa_tests/tools/check_services.py'], ROOT))

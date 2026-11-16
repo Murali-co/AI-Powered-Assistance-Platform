@@ -1,3 +1,4 @@
+"""Manual Ollama tags probe, preserved from backend/test_health.py."""
 import httpx
 import asyncio
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useJobs } from '../hooks/useJobs';
 import JobCard from '../components/JobCard';
@@ -6,17 +6,17 @@ import MatchScore from '../components/MatchScore';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { useDurableJob } from '../hooks/useDurableJob';
 
 export const JobMatch = () => {
   const navigate = useNavigate();
   const {
     matchedJobs,
     isLoadingMatchedJobs,
-    generateApplication,
-    pollJobStatus
+    generateApplication
   } = useJobs();
 
-  const [pollingJobId, setPollingJobId] = useState(null);
 
   // Explanation Modal states
   const [explainingJob, setExplainingJob] = useState(null);
@@ -26,6 +26,15 @@ export const JobMatch = () => {
   // Tailored Resume states
   const [tailoredResumeData, setTailoredResumeData] = useState(null);
   const [_isTailoringResume, setIsTailoringResume] = useState(false);
+  const { user } = useAuth();
+  const ownerId = user?.id;
+  const draftToast = `application-draft:${ownerId}`;
+  const { pendingJobId: pollingJobId, begin } = useDurableJob(ownerId, 'application_draft', (result, job) => {
+    toast.success('Application package generated!', { id: draftToast });
+    setExplainingJob(null);
+    navigate('/apply-assistant', { state: { ownerId, package: result, job } });
+  }, message => toast.error(message || 'Failed to tailor application.', { id: draftToast }));
+  useEffect(() => () => toast.dismiss(`application-draft:${ownerId}`), [ownerId]);
 
   const handleTailorResume = async (job) => {
     setIsTailoringResume(true);
@@ -43,33 +52,13 @@ export const JobMatch = () => {
   };
 
   const handleGenerateApplication = async (job) => {
-    const loadingToast = toast.loading('Initiating AI Application tailoring...');
+    const loadingToast = toast.loading('Initiating AI Application tailoring...', { id: draftToast });
     try {
       const response = await generateApplication({ jobId: job.id });
       const { job_id } = response;
-      setPollingJobId(job_id);
-
-      pollJobStatus(
-        job_id,
-        (result) => {
-          toast.success('Application package generated!', { id: loadingToast });
-          setPollingJobId(null);
-          setExplainingJob(null); // Close modal if open
-          navigate('/apply-assistant', { 
-            state: { 
-              package: result,
-              job: job 
-            } 
-          });
-        },
-        (errorMsg) => {
-          toast.error(errorMsg || 'Failed to tailor application.', { id: loadingToast });
-          setPollingJobId(null);
-        }
-      );
+      begin(job_id, job);
     } catch (err) {
       toast.error('Could not start application tailoring.', { id: loadingToast });
-      setPollingJobId(null);
     }
   };
 
@@ -97,7 +86,7 @@ export const JobMatch = () => {
             <LoadingSpinner size="lg" text="" />
             <h3 className="text-lg font-bold text-dark-100 animate-pulse">Tailoring Application Materials</h3>
             <p className="text-xs text-dark-400 leading-relaxed">
-              Ollama is scanning the job description, mapping it to your profile, writing custom bullets, and composing a tailored cover letter. This takes 15-30 seconds...
+              Your application draft is being prepared. You can return to this page while the task continues.
             </p>
           </div>
         </div>

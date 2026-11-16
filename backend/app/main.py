@@ -3,6 +3,8 @@ import logging
 import os
 import time
 import uuid
+import asyncio
+from contextlib import suppress
 from pathlib import Path
 from urllib.parse import unquote
 from contextlib import asynccontextmanager
@@ -10,6 +12,7 @@ from fastapi import FastAPI, APIRouter, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.concurrency import run_in_threadpool
 
 from typing import Dict, Any, Optional, List
@@ -66,13 +69,13 @@ async def lifespan(app: FastAPI):
     Manage application lifecycle: clean startup verification and graceful shutdown.
     Avoids duplicate initialization or destructive wipe of persistent resources.
     """
-    logger.info("AI Powered Assistance Platform Backend starting up...")
+    logger.info("AI-Powered-Assistance-Platform Backend starting up...")
 
     # 1. Non-destructive database check
     db_ready = False
     try:
         from app.db.session import check_database_connection
-        db_check = check_database_connection()
+        db_check = await run_in_threadpool(check_database_connection)
         if db_check["healthy"]:
             logger.info("✅ Database connectivity verified.")
             if not db_check["schema_ready"]:
@@ -90,13 +93,13 @@ async def lifespan(app: FastAPI):
     # 2. ChromaDB safe initialization
     try:
         from app.vector_db.chroma_client import ChromaDBClient
-        ChromaDBClient.initialize_collections()
+        await run_in_threadpool(ChromaDBClient.initialize_collections)
         logger.info("✅ ChromaDB collections verified.")
     except Exception as e:
         logger.warning(f"⚠️ ChromaDB collection initialization deferred/failed: {e}")
 
     # 3. Start APScheduler and recover background jobs when database is reachable
-    if db_ready:
+    if db_ready and settings.RUN_SCHEDULER_IN_API:
         try:
             from app.utils.bg_jobs import recover_pending_or_stale_jobs
             recover_pending_or_stale_jobs(stale_minutes=30)
@@ -108,12 +111,21 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"⚠️ Failed to start background scheduler on startup: {e}")
     else:
-        logger.warning("⚠️ Skipping APScheduler startup because the database is unavailable or schema is incomplete.")
+        logger.info("APScheduler startup skipped (disabled in API, or database unavailable/incomplete).")
 
-    yield
+    # User-requested drafts/searches recover independently of the optional
+    # scheduler (which can send configured email or run retention tasks).
+    from app.utils.job_queue import consume
+    queue_consumer = asyncio.create_task(consume())
+    try:
+        yield
+    finally:
+        queue_consumer.cancel()
+        with suppress(asyncio.CancelledError):
+            await queue_consumer
 
     # Shutdown sequence
-    logger.info("AI Powered Assistance Platform Backend shutting down...")
+    logger.info("AI-Powered-Assistance-Platform Backend shutting down...")
     try:
         shutdown_scheduler()
     except Exception as e:
@@ -128,11 +140,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI Powered Assistance Platform API",
-    description="AI Powered Assistance Platform",
+    title="AI-Powered-Assistance-Platform API",
+    description="AI-Powered-Assistance-Platform",
     version="1.0.0",
+    docs_url=None,
     lifespan=lifespan
 )
+
+# Serve API documentation locally so CDN/DNS failures cannot blank the docs UI.
+SWAGGER_ASSETS = Path(__file__).resolve().parent.parent / 'vendor' / 'swagger'
+app.mount('/docs-assets', StaticFiles(directory=str(SWAGGER_ASSETS)), name='docs-assets')
+
+
+@app.get('/docs', include_in_schema=False)
+async def local_api_docs():
+    return get_swagger_ui_html(openapi_url='/openapi.json', title=app.title,
+        swagger_js_url='/docs-assets/swagger-ui-bundle.js',
+        swagger_css_url='/docs-assets/swagger-ui.css',
+        swagger_ui_parameters={'filter': True},
+        swagger_favicon_url='data:,')
 
 # Proxy headers support (N3)
 if getattr(settings, "TRUST_PROXY_HEADERS", False):
@@ -264,26 +290,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register Routers
-app.include_router(auth_router)
-app.include_router(resume_router)
+# Register Routers (Mounted both at root and /api for uniform client/proxy compatibility)
 ats_compat_router = APIRouter(prefix="/ats", tags=["ats"])
 ats_compat_router.add_api_route("/score", calculate_ats_score, methods=["POST"])
-app.include_router(ats_compat_router)
-app.include_router(jobs_router)
-app.include_router(saved_jobs_router)
-app.include_router(apply_router)
-app.include_router(rag_router)
-app.include_router(copilot_router)
-app.include_router(interview_router)
-app.include_router(market_router)
-app.include_router(notifications_router)
-app.include_router(settings_router)
-app.include_router(profile_router)
-app.include_router(llm_router)
-app.include_router(feedback_router)
-app.include_router(analytics_router)
-app.include_router(orchestrator_router)
+
+ALL_ROUTERS = [
+    auth_router,
+    resume_router,
+    ats_compat_router,
+    jobs_router,
+    saved_jobs_router,
+    apply_router,
+    rag_router,
+    copilot_router,
+    interview_router,
+    market_router,
+    notifications_router,
+    settings_router,
+    profile_router,
+    llm_router,
+    feedback_router,
+    analytics_router,
+    orchestrator_router,
+]
+
+for r in ALL_ROUTERS:
+    app.include_router(r)
+    app.include_router(r, prefix="/api")
 
 
 from sqlalchemy.exc import OperationalError as SQLAOperationalError, InterfaceError as SQLAInterfaceError
@@ -347,12 +380,13 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Root Health Check
+# Root & API Health Check
 @app.get("/")
+@app.get("/api")
 async def root_health_check():
     return {
         "status": "healthy",
-        "service": "AI Powered Assistance Platform",
+        "service": "AI-Powered-Assistance-Platform",
         "version": "1.0.0"
     }
 
@@ -362,32 +396,31 @@ from app.profile.router import get_dashboard_overview
 from app.auth.utils import get_current_user
 
 @app.get("/dashboard/overview")
+@app.get("/api/dashboard/overview")
 async def dashboard_overview_endpoint(current_user: dict = Depends(get_current_user)):
     return await get_dashboard_overview(current_user)
 
-
-# ============================================================================
-# STANDARDIZED HEALTH CHECK ENDPOINTS (PHASE G)
-# ============================================================================
 
 # ============================================================================
 # STANDARDIZED HEALTH CHECK ENDPOINTS (PHASE G / M10 / M12)
 # ============================================================================
 
 @app.get("/health/live")
+@app.get("/api/health/live")
 async def liveness_check():
     """
     Minimal public liveness probe (M10): reports process vitality without diagnostics.
     """
     return {
         "status": "alive",
-        "service": "AI Powered Assistance Platform",
+        "service": "AI-Powered-Assistance-Platform",
         "timestamp": time.time()
     }
 
 
 @app.get("/health/ready")
-async def readiness_check():
+@app.get("/api/health/ready")
+def readiness_check():
     """
     Minimal public readiness probe (M10): checks core DB readiness without disclosing
     internal connection strings, schema details, or stack traces.
@@ -415,6 +448,7 @@ DIAGNOSTICS_CACHE_TTL = 30.0
 
 
 @app.get("/health/services")
+@app.get("/api/health/services")
 async def services_health_check(current_user: dict = Depends(get_current_user)):
     """
     Detailed service status (restricted to authorized users - M10/M12).
@@ -509,7 +543,8 @@ async def services_health_check(current_user: dict = Depends(get_current_user)):
 
 # Backwards compatibility endpoints (restricted to authorized users - M10/M12)
 @app.get("/health/db")
-async def db_health_check(current_user: dict = Depends(get_current_user)):
+@app.get("/api/health/db")
+def db_health_check(current_user: dict = Depends(get_current_user)):
     """Backwards-compatible database health check."""
     from app.db.session import check_database_connection
     res = check_database_connection()
@@ -531,6 +566,7 @@ async def db_health_check(current_user: dict = Depends(get_current_user)):
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def detailed_health_check(current_user: dict = Depends(get_current_user)):
     """Backwards-compatible consolidated health check (authorized - M10/M12)."""
     return await services_health_check(current_user=current_user)
@@ -553,6 +589,13 @@ async def ollama_health_detail(current_user: dict = Depends(get_current_user)):
 # Optional SPA Frontend Serving
 STATIC_DIR = (Path(__file__).resolve().parent.parent / "static").resolve()
 
+FRONTEND_PAGE_ROUTES = {
+    "", "dashboard", "copilot", "interview", "upload", "match",
+    "skill-gap", "tailor", "jobs", "applications", "security",
+    "auth", "verify-email", "resend-verification", "verification-success",
+    "forgot-password", "reset-password", "admin", "admin/audit"
+}
+
 API_PREFIXES = (
     "api/", "dashboard/", "auth/", "resume/", "ats/", "jobs/", "apply/", "rag/", "copilot/", 
     "interview/", "market/", "notifications/", "settings/", 
@@ -562,8 +605,15 @@ API_PREFIXES = (
 if os.environ.get("SERVE_STATIC_FRONTEND") == "true" or STATIC_DIR.is_dir():
     @app.get("/{catchall:path}", include_in_schema=False)
     async def serve_react_app(catchall: str):
-        # 1. Reject API and backend routes with explicit JSON 404
         normalized_path = catchall.strip("/")
+
+        # Direct page reload matches SPA index.html
+        if normalized_path in FRONTEND_PAGE_ROUTES or any(normalized_path.startswith(f"{p}/") for p in ("apply", "jobs")):
+            index_path = STATIC_DIR / "index.html"
+            if index_path.is_file():
+                return FileResponse(str(index_path))
+
+        # 1. Reject API and backend routes with explicit JSON 404
         if (
             catchall in ("api", "health")
             or normalized_path in ("api", "health")

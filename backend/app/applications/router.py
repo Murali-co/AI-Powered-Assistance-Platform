@@ -13,6 +13,8 @@ from app.db.models import ApplicationStatusHistory
 from app.applications.generator import ApplicationGenerator
 from app.jobs.matcher import JobMatcher
 from app.utils.bg_jobs import create_job, update_job
+from app.utils.job_queue import enqueue, run_job
+from starlette.concurrency import run_in_threadpool
 from app.utils.limiter import limiter
 
 logger = logging.getLogger(__name__)
@@ -37,7 +39,6 @@ async def run_apply_generation_task(job_id: str, bg_job_id: str, user_id: int, f
         update_job(bg_job_id, "completed", result=package)
     except __import__('asyncio').CancelledError:
         logger.warning("Generation task %s was cancelled due to server shutdown.", bg_job_id)
-        update_job(bg_job_id, "failed", error="Server shutdown during generation.")
         raise
     except Exception as e:
         logger.exception("Error generating application package for job %s: %s", job_id, e)
@@ -60,19 +61,13 @@ async def generate_application(
             detail="Job listing not found."
         )
         
-    bg_job_id = create_job(user_id=current_user["id"])
-    background_tasks.add_task(
-        run_apply_generation_task,
-        job_id,
-        bg_job_id,
-        current_user["id"],
-        current_user["full_name"]
-    )
+    bg_job_id = await run_in_threadpool(enqueue, current_user['id'], 'application_draft', {'job_id': job_id})
+    background_tasks.add_task(run_job, bg_job_id)
     
     return {"job_id": bg_job_id, "status": "pending"}
 
 @router.post("/submit")
-async def record_submission(
+def record_submission(
     request: ApplicationSubmitRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -135,7 +130,7 @@ async def record_submission(
     return {"message": "Application logged successfully.", "application_id": app_id}
 
 @router.get("/history", response_model=List[ApplicationHistoryOut])
-async def get_history(current_user: dict = Depends(get_current_user)):
+def get_history(current_user: dict = Depends(get_current_user)):
     history = DBManager.get_applications(current_user["id"])
     
     formatted = []
@@ -170,7 +165,7 @@ async def get_history(current_user: dict = Depends(get_current_user)):
     return formatted
 
 @router.get("/export/{application_id}/pdf")
-async def export_application_pdf(
+def export_application_pdf(
     application_id: str,
     current_user: dict = Depends(get_current_user)
 ):
@@ -269,7 +264,7 @@ async def export_application_pdf(
         )
 
 @router.get("/{application_id}/status-history")
-async def get_application_status_history(
+def get_application_status_history(
     application_id: str,
     current_user: dict = Depends(get_current_user)
 ):
@@ -280,7 +275,7 @@ async def get_application_status_history(
 
 @router.patch("/{application_id}/status")
 @router.put("/{application_id}/status")
-async def update_application_status(
+def update_application_status(
     application_id: str,
     new_status: Optional[str] = None,
     payload: Optional[UpdateStatusPayload] = Body(None),

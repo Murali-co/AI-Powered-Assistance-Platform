@@ -138,7 +138,7 @@ async def execute(task, user):
         return await ApplicationGenerator.generate_package(user['id'], data['job_id'], user['full_name'])
     from app.applications.router import record_submission
     from app.models.schemas import ApplicationSubmitRequest
-    return await record_submission(ApplicationSubmitRequest.model_validate(data), current_user=user)
+    return await run_in_threadpool(record_submission, ApplicationSubmitRequest.model_validate(data), current_user=user)
 
 
 def finish_task(workflow_id, task_id, output=None, failed=False):

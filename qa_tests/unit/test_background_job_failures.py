@@ -56,3 +56,24 @@ def test_failed_update_does_not_change_memory(jobs, monkeypatch):
     jobs.jobs_db["job"] = {"status": "pending"}
     assert jobs.update_job("job", "completed") is False
     assert jobs.jobs_db["job"]["status"] == "pending"
+
+
+@pytest.mark.parametrize('worker', [None, 'stale-worker'])
+def test_only_current_queue_lease_can_publish_results(jobs, monkeypatch, worker):
+    db = MagicMock()
+    record = MagicMock(status='processing', worker_id='current-worker', result={'_dispatch_version': 1})
+    db.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = record
+    monkeypatch.setattr(jobs, 'SessionLocal', lambda: db)
+    token = jobs.active_worker.set(worker)
+    try:
+        assert jobs.update_job('job', 'completed', result={'count': 1}) is False
+    finally:
+        jobs.active_worker.reset(token)
+    db.commit.assert_not_called()
+    assert record.status == 'processing'
+
+
+@pytest.mark.parametrize('scheme', ['postgres://', 'postgresql://', 'postgresql+psycopg://'])
+def test_failure_details_do_not_persist_connection_credentials(jobs, scheme):
+    sanitized = jobs._sanitize_error('Connection failed: ' + scheme + 'synthetic:private-value@ep-unit.neon.tech/unit?token=private-token')
+    assert 'private-value' not in sanitized and 'private-token' not in sanitized

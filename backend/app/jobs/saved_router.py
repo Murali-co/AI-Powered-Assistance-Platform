@@ -38,7 +38,7 @@ class SavedJobResponse(BaseModel):
 
 @router.post("", response_model=SavedJobResponse)
 @router.post("/save", response_model=SavedJobResponse)
-async def save_job(
+def save_job(
     req: SaveJobRequest,
     current_user: dict = Depends(get_current_user)
 ):
@@ -77,7 +77,7 @@ async def save_job(
 
 @router.get("", response_model=List[SavedJobResponse])
 @router.get("/list", response_model=List[SavedJobResponse])
-async def get_saved_jobs(
+def get_saved_jobs(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all saved jobs for current user"""
@@ -91,7 +91,7 @@ async def get_saved_jobs(
         db.close()
 
 @router.delete("/{saved_job_id}")
-async def remove_saved_job(
+def remove_saved_job(
     saved_job_id: int,
     current_user: dict = Depends(get_current_user)
 ):
@@ -116,7 +116,7 @@ async def remove_saved_job(
         db.close()
 
 @router.patch("/{saved_job_id}/stage")
-async def update_saved_job_stage(
+def update_saved_job_stage(
     saved_job_id: int,
     stage: Optional[str] = None,
     payload: Optional[UpdateStageRequest] = Body(None),
@@ -145,7 +145,7 @@ async def update_saved_job_stage(
         db.close()
 
 @router.patch("/{saved_job_id}/notes")
-async def update_saved_job_notes(
+def update_saved_job_notes(
     saved_job_id: int,
     notes: Optional[str] = None,
     payload: Optional[UpdateNotesRequest] = Body(None),

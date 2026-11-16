@@ -25,14 +25,14 @@ class ResumeCleaner:
         cleaned = cls.clean_text(text)
         lines = cleaned.splitlines()
         
-        # Define header categories and regex patterns
+        # Define header categories and regex patterns (supports optional brackets e.g. [SUMMARY])
         patterns = {
-            "summary": re.compile(r'(?i)^\s*(summary|professional summary|about me|profile|objective|career objective|about)\s*:??\s*$'),
-            "experience": re.compile(r'(?i)^\s*(experience|work experience|employment|work history|professional experience|employment history)\s*:??\s*$'),
-            "education": re.compile(r'(?i)^\s*(education|academic background|academic history|qualifications)\s*:??\s*$'),
-            "skills": re.compile(r'(?i)^\s*(skills|technical skills|key skills|core competencies|expertise|technologies)\s*:??\s*$'),
-            "projects": re.compile(r'(?i)^\s*(projects|academic projects|key projects|personal projects)\s*:??\s*$'),
-            "certifications": re.compile(r'(?i)^\s*(certifications|licenses|certifications & licenses|awards|achievements)\s*:??\s*$')
+            "summary": re.compile(r'(?i)^\s*\[?\s*(summary|professional summary|about me|profile|objective|career objective|about)\s*\]?:??\s*$'),
+            "experience": re.compile(r'(?i)^\s*\[?\s*(experience|work experience|employment|work history|professional experience|employment history)\s*\]?:??\s*$'),
+            "education": re.compile(r'(?i)^\s*\[?\s*(education|academic background|academic history|qualifications)\s*\]?:??\s*$'),
+            "skills": re.compile(r'(?i)^\s*\[?\s*(skills|technical skills|key skills|core competencies|expertise|technologies)\s*\]?:??\s*$'),
+            "projects": re.compile(r'(?i)^\s*\[?\s*(projects|academic projects|key projects|personal projects)\s*\]?:??\s*$'),
+            "certifications": re.compile(r'(?i)^\s*\[?\s*(certifications|licenses|certifications & licenses|awards|achievements)\s*\]?:??\s*$')
         }
         
         sections: Dict[str, List[str]] = {

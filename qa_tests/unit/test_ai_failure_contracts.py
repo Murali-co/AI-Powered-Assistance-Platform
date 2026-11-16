@@ -30,6 +30,20 @@ async def test_empty_cover_letter_is_not_replaced_by_a_template(monkeypatch):
     assert error.value.status_code == 503
 
 
+@pytest.mark.asyncio
+async def test_gap_analysis_rejects_invented_present_skills_and_invalid_scores(monkeypatch):
+    import json
+    from app.llm.ollama_client import OllamaClient
+    from app.llm.skill_gap import SkillGapAnalyzer
+    for skills, score in [(['Kubernetes'], 80), (['Python'], 101)]:
+        result = {'present_skills': skills, 'missing_skills': ['Go'], 'skill_score': score,
+                  'recommendations': [], 'learning_resources': []}
+        monkeypatch.setattr(OllamaClient, 'generate', AsyncMock(return_value=json.dumps(result)))
+        with pytest.raises(HTTPException) as error:
+            await SkillGapAnalyzer.analyze(['Python'], 'Software Engineer')
+        assert error.value.status_code == 503
+
+
 def test_two_stage_matching_keeps_results_outside_the_rerank_window(monkeypatch):
     from app.jobs import two_stage_matcher as module
     monkeypatch.setattr(module, 'get_cross_encoder_model', lambda *_: None)

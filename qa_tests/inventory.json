@@ -1,0 +1,1466 @@
+{
+  "project": "AI-Powered-Assistance-Platform",
+  "note": "Discovery is not behavioral verification. Review status.json and results/latest.json for evidence.",
+  "operations": [
+    {
+      "id": "API-001",
+      "method": "GET",
+      "path": "/analytics/dashboard",
+      "source": "backend/app/analytics/router.py",
+      "line": 137,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-002",
+      "method": "GET",
+      "path": "/analytics/match-score-distribution",
+      "source": "backend/app/analytics/router.py",
+      "line": 157,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-003",
+      "method": "GET",
+      "path": "/analytics/missing-skills",
+      "source": "backend/app/analytics/router.py",
+      "line": 165,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-004",
+      "method": "GET",
+      "path": "/analytics/conversion-funnel",
+      "source": "backend/app/analytics/router.py",
+      "line": 186,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-005",
+      "method": "POST",
+      "path": "/apply/generate/{job_id}",
+      "source": "backend/app/applications/router.py",
+      "line": 49,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-006",
+      "method": "POST",
+      "path": "/apply/submit",
+      "source": "backend/app/applications/router.py",
+      "line": 70,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-007",
+      "method": "GET",
+      "path": "/apply/history",
+      "source": "backend/app/applications/router.py",
+      "line": 133,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-008",
+      "method": "GET",
+      "path": "/apply/export/{application_id}/pdf",
+      "source": "backend/app/applications/router.py",
+      "line": 168,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-009",
+      "method": "GET",
+      "path": "/apply/{application_id}/status-history",
+      "source": "backend/app/applications/router.py",
+      "line": 267,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-010",
+      "method": "PATCH",
+      "path": "/apply/{application_id}/status",
+      "source": "backend/app/applications/router.py",
+      "line": 278,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-011",
+      "method": "PUT",
+      "path": "/apply/{application_id}/status",
+      "source": "backend/app/applications/router.py",
+      "line": 278,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-012",
+      "method": "POST",
+      "path": "/auth/register",
+      "source": "backend/app/auth/router.py",
+      "line": 219,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-013",
+      "method": "POST",
+      "path": "/auth/login",
+      "source": "backend/app/auth/router.py",
+      "line": 307,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-014",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "source": "backend/app/auth/router.py",
+      "line": 415,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-015",
+      "method": "POST",
+      "path": "/auth/logout",
+      "source": "backend/app/auth/router.py",
+      "line": 654,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-016",
+      "method": "GET",
+      "path": "/auth/sessions",
+      "source": "backend/app/auth/router.py",
+      "line": 672,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-017",
+      "method": "DELETE",
+      "path": "/auth/sessions/{session_id}",
+      "source": "backend/app/auth/router.py",
+      "line": 696,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-018",
+      "method": "POST",
+      "path": "/auth/sessions/revoke-others",
+      "source": "backend/app/auth/router.py",
+      "line": 722,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-019",
+      "method": "POST",
+      "path": "/auth/change-password",
+      "source": "backend/app/auth/router.py",
+      "line": 747,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-020",
+      "method": "GET",
+      "path": "/auth/me",
+      "source": "backend/app/auth/router.py",
+      "line": 790,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-021",
+      "method": "POST",
+      "path": "/auth/forgot-password",
+      "source": "backend/app/auth/router.py",
+      "line": 806,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-022",
+      "method": "POST",
+      "path": "/auth/reset-password",
+      "source": "backend/app/auth/router.py",
+      "line": 836,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-023",
+      "method": "GET",
+      "path": "/auth/verify-email",
+      "source": "backend/app/auth/router.py",
+      "line": 884,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-024",
+      "method": "GET",
+      "path": "/auth/verify-email/{token}",
+      "source": "backend/app/auth/router.py",
+      "line": 884,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-025",
+      "method": "POST",
+      "path": "/auth/verify-email",
+      "source": "backend/app/auth/router.py",
+      "line": 884,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-026",
+      "method": "POST",
+      "path": "/auth/verify-email/{token}",
+      "source": "backend/app/auth/router.py",
+      "line": 884,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-027",
+      "method": "POST",
+      "path": "/auth/resend-verification",
+      "source": "backend/app/auth/router.py",
+      "line": 919,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-028",
+      "method": "GET",
+      "path": "/auth/admin/stats",
+      "source": "backend/app/auth/router.py",
+      "line": 950,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-029",
+      "method": "GET",
+      "path": "/auth/admin/audit-log",
+      "source": "backend/app/auth/router.py",
+      "line": 959,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-030",
+      "method": "POST",
+      "path": "/auth/2fa/setup",
+      "source": "backend/app/auth/router.py",
+      "line": 985,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-031",
+      "method": "POST",
+      "path": "/auth/2fa/confirm",
+      "source": "backend/app/auth/router.py",
+      "line": 1018,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-032",
+      "method": "POST",
+      "path": "/auth/2fa/disable",
+      "source": "backend/app/auth/router.py",
+      "line": 1062,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-033",
+      "method": "POST",
+      "path": "/auth/2fa/backup-codes/regenerate",
+      "source": "backend/app/auth/router.py",
+      "line": 1083,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-034",
+      "method": "POST",
+      "path": "/auth/2fa/verify",
+      "source": "backend/app/auth/router.py",
+      "line": 1113,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-035",
+      "method": "PATCH",
+      "path": "/auth/preferences/auto-approve-external",
+      "source": "backend/app/auth/router.py",
+      "line": 1183,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-036",
+      "method": "DELETE",
+      "path": "/auth/account",
+      "source": "backend/app/auth/router.py",
+      "line": 1208,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-037",
+      "method": "GET",
+      "path": "/copilot/health",
+      "source": "backend/app/copilot/router.py",
+      "line": 50,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-038",
+      "method": "POST",
+      "path": "/copilot/respond",
+      "source": "backend/app/copilot/router.py",
+      "line": 55,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-039",
+      "method": "GET",
+      "path": "/copilot/sessions",
+      "source": "backend/app/copilot/router.py",
+      "line": 71,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-040",
+      "method": "POST",
+      "path": "/copilot/sessions",
+      "source": "backend/app/copilot/router.py",
+      "line": 79,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-041",
+      "method": "GET",
+      "path": "/copilot/history/{session_id}",
+      "source": "backend/app/copilot/router.py",
+      "line": 91,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-042",
+      "method": "DELETE",
+      "path": "/copilot/session/{session_id}",
+      "source": "backend/app/copilot/router.py",
+      "line": 102,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-043",
+      "method": "POST",
+      "path": "/copilot/chat",
+      "source": "backend/app/copilot/router.py",
+      "line": 118,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-044",
+      "method": "POST",
+      "path": "/feedback/submit",
+      "source": "backend/app/feedback/router.py",
+      "line": 14,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-045",
+      "method": "GET",
+      "path": "/interview/health",
+      "source": "backend/app/interview/router.py",
+      "line": 33,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-046",
+      "method": "GET",
+      "path": "/interview/next-question",
+      "source": "backend/app/interview/router.py",
+      "line": 38,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-047",
+      "method": "POST",
+      "path": "/interview/score",
+      "source": "backend/app/interview/router.py",
+      "line": 48,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-048",
+      "method": "POST",
+      "path": "/interview/start",
+      "source": "backend/app/interview/router.py",
+      "line": 115,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-049",
+      "method": "GET",
+      "path": "/interview/session/{session_id}",
+      "source": "backend/app/interview/router.py",
+      "line": 134,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-050",
+      "method": "POST",
+      "path": "/interview/answer",
+      "source": "backend/app/interview/router.py",
+      "line": 139,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-051",
+      "method": "POST",
+      "path": "/interview/hint",
+      "source": "backend/app/interview/router.py",
+      "line": 174,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-052",
+      "method": "GET",
+      "path": "/interview/report",
+      "source": "backend/app/interview/router.py",
+      "line": 182,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-053",
+      "method": "GET",
+      "path": "/jobs/fetch",
+      "source": "backend/app/jobs/router.py",
+      "line": 70,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-054",
+      "method": "GET",
+      "path": "/jobs/{job_id}/status",
+      "source": "backend/app/jobs/router.py",
+      "line": 110,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-055",
+      "method": "GET",
+      "path": "/jobs/list",
+      "source": "backend/app/jobs/router.py",
+      "line": 126,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-056",
+      "method": "POST",
+      "path": "/jobs/match",
+      "source": "backend/app/jobs/router.py",
+      "line": 147,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-057",
+      "method": "POST",
+      "path": "/jobs/criteria",
+      "source": "backend/app/jobs/router.py",
+      "line": 170,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-058",
+      "method": "GET",
+      "path": "/jobs/criteria",
+      "source": "backend/app/jobs/router.py",
+      "line": 185,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-059",
+      "method": "GET",
+      "path": "/jobs/explain/{job_id}",
+      "source": "backend/app/jobs/router.py",
+      "line": 192,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-060",
+      "method": "POST",
+      "path": "/jobs/saved",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 41,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-061",
+      "method": "POST",
+      "path": "/jobs/saved/save",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 41,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-062",
+      "method": "GET",
+      "path": "/jobs/saved",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 80,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-063",
+      "method": "GET",
+      "path": "/jobs/saved/list",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 80,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-064",
+      "method": "DELETE",
+      "path": "/jobs/saved/{saved_job_id}",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 94,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-065",
+      "method": "PATCH",
+      "path": "/jobs/saved/{saved_job_id}/stage",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 119,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-066",
+      "method": "PATCH",
+      "path": "/jobs/saved/{saved_job_id}/notes",
+      "source": "backend/app/jobs/saved_router.py",
+      "line": 148,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-067",
+      "method": "GET",
+      "path": "/llm/available-models",
+      "source": "backend/app/llm/router.py",
+      "line": 29,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-068",
+      "method": "GET",
+      "path": "/llm/recommended-models",
+      "source": "backend/app/llm/router.py",
+      "line": 40,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-069",
+      "method": "GET",
+      "path": "/llm/model-info/{model_name}",
+      "source": "backend/app/llm/router.py",
+      "line": 51,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-070",
+      "method": "GET",
+      "path": "/llm/user-model-preference",
+      "source": "backend/app/llm/router.py",
+      "line": 65,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-071",
+      "method": "POST",
+      "path": "/llm/user-model-preference",
+      "source": "backend/app/llm/router.py",
+      "line": 86,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-072",
+      "method": "POST",
+      "path": "/llm/select",
+      "source": "backend/app/llm/router.py",
+      "line": 86,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-073",
+      "method": "GET",
+      "path": "/llm/pull-model/{model_name}",
+      "source": "backend/app/llm/router.py",
+      "line": 125,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-074",
+      "method": "GET",
+      "path": "/ats/docs",
+      "source": "backend/app/main.py",
+      "line": 156,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-075",
+      "method": "GET",
+      "path": "/ats/",
+      "source": "backend/app/main.py",
+      "line": 386,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-076",
+      "method": "GET",
+      "path": "/ats/api",
+      "source": "backend/app/main.py",
+      "line": 386,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-077",
+      "method": "GET",
+      "path": "/ats/dashboard/overview",
+      "source": "backend/app/main.py",
+      "line": 400,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-078",
+      "method": "GET",
+      "path": "/ats/api/dashboard/overview",
+      "source": "backend/app/main.py",
+      "line": 400,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-079",
+      "method": "GET",
+      "path": "/ats/health/live",
+      "source": "backend/app/main.py",
+      "line": 410,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-080",
+      "method": "GET",
+      "path": "/ats/api/health/live",
+      "source": "backend/app/main.py",
+      "line": 410,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-081",
+      "method": "GET",
+      "path": "/ats/health/ready",
+      "source": "backend/app/main.py",
+      "line": 423,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-082",
+      "method": "GET",
+      "path": "/ats/api/health/ready",
+      "source": "backend/app/main.py",
+      "line": 423,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-083",
+      "method": "GET",
+      "path": "/ats/health/services",
+      "source": "backend/app/main.py",
+      "line": 452,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-084",
+      "method": "GET",
+      "path": "/ats/api/health/services",
+      "source": "backend/app/main.py",
+      "line": 452,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-085",
+      "method": "GET",
+      "path": "/ats/health/db",
+      "source": "backend/app/main.py",
+      "line": 547,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-086",
+      "method": "GET",
+      "path": "/ats/api/health/db",
+      "source": "backend/app/main.py",
+      "line": 547,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-087",
+      "method": "GET",
+      "path": "/ats/health",
+      "source": "backend/app/main.py",
+      "line": 570,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-088",
+      "method": "GET",
+      "path": "/ats/api/health",
+      "source": "backend/app/main.py",
+      "line": 570,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-089",
+      "method": "GET",
+      "path": "/ats/api/health/ollama",
+      "source": "backend/app/main.py",
+      "line": 576,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-090",
+      "method": "GET",
+      "path": "/ats/{catchall:path}",
+      "source": "backend/app/main.py",
+      "line": 607,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-091",
+      "method": "GET",
+      "path": "/market/trending-skills",
+      "source": "backend/app/market/router.py",
+      "line": 44,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-092",
+      "method": "GET",
+      "path": "/market/salary-insights",
+      "source": "backend/app/market/router.py",
+      "line": 49,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-093",
+      "method": "GET",
+      "path": "/market/hiring-trends",
+      "source": "backend/app/market/router.py",
+      "line": 56,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-094",
+      "method": "GET",
+      "path": "/notifications",
+      "source": "backend/app/notifications/router.py",
+      "line": 14,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-095",
+      "method": "POST",
+      "path": "/notifications/read/{notification_id}",
+      "source": "backend/app/notifications/router.py",
+      "line": 21,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-096",
+      "method": "POST",
+      "path": "/notifications/read-all",
+      "source": "backend/app/notifications/router.py",
+      "line": 29,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-097",
+      "method": "POST",
+      "path": "/notifications/push-token",
+      "source": "backend/app/notifications/router.py",
+      "line": 36,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-098",
+      "method": "GET",
+      "path": "/orchestrator/health",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 33,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-099",
+      "method": "GET",
+      "path": "/orchestrator/capabilities",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 38,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-100",
+      "method": "POST",
+      "path": "/orchestrator/workflows",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 44,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-101",
+      "method": "GET",
+      "path": "/orchestrator/workflows/{workflow_id}",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 54,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-102",
+      "method": "POST",
+      "path": "/orchestrator/workflows/{workflow_id}/approve",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 62,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-103",
+      "method": "POST",
+      "path": "/orchestrator/workflows/{workflow_id}/reject",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 67,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-104",
+      "method": "GET",
+      "path": "/orchestrator/workflows",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 72,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-105",
+      "method": "GET",
+      "path": "/orchestrator/workflows/{workflow_id}/pending-approval",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 77,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-106",
+      "method": "POST",
+      "path": "/orchestrator/run",
+      "source": "backend/app/orchestrator/router.py",
+      "line": 85,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-107",
+      "method": "GET",
+      "path": "/profile/completeness",
+      "source": "backend/app/profile/router.py",
+      "line": 48,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-108",
+      "method": "GET",
+      "path": "/profile/verified",
+      "source": "backend/app/profile/router.py",
+      "line": 92,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-109",
+      "method": "POST",
+      "path": "/profile/verified",
+      "source": "backend/app/profile/router.py",
+      "line": 130,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-110",
+      "method": "PUT",
+      "path": "/profile/verified",
+      "source": "backend/app/profile/router.py",
+      "line": 130,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-111",
+      "method": "GET",
+      "path": "/profile/roadmap",
+      "source": "backend/app/profile/router.py",
+      "line": 176,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-112",
+      "method": "POST",
+      "path": "/profile/roadmap/milestones/{milestone_id}",
+      "source": "backend/app/profile/router.py",
+      "line": 321,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-113",
+      "method": "PATCH",
+      "path": "/profile/roadmap/milestones/{milestone_id}",
+      "source": "backend/app/profile/router.py",
+      "line": 321,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-114",
+      "method": "GET",
+      "path": "/profile/overview",
+      "source": "backend/app/profile/router.py",
+      "line": 500,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-115",
+      "method": "POST",
+      "path": "/resume/upload",
+      "source": "backend/app/resume/router.py",
+      "line": 191,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-116",
+      "method": "POST",
+      "path": "/resume/analyze",
+      "source": "backend/app/resume/router.py",
+      "line": 263,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-117",
+      "method": "GET",
+      "path": "/resume/profile",
+      "source": "backend/app/resume/router.py",
+      "line": 285,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-118",
+      "method": "POST",
+      "path": "/resume/suggest-roles",
+      "source": "backend/app/resume/router.py",
+      "line": 296,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-119",
+      "method": "POST",
+      "path": "/resume/cover-letter",
+      "source": "backend/app/resume/router.py",
+      "line": 358,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-120",
+      "method": "POST",
+      "path": "/resume/tailor",
+      "source": "backend/app/resume/router.py",
+      "line": 381,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-121",
+      "method": "POST",
+      "path": "/resume/select-version",
+      "source": "backend/app/resume/router.py",
+      "line": 416,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-122",
+      "method": "POST",
+      "path": "/resume/profile/edit",
+      "source": "backend/app/resume/router.py",
+      "line": 435,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-123",
+      "method": "GET",
+      "path": "/resume/versions",
+      "source": "backend/app/resume/router.py",
+      "line": 456,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-124",
+      "method": "POST",
+      "path": "/resume/versions/create",
+      "source": "backend/app/resume/router.py",
+      "line": 467,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-125",
+      "method": "GET",
+      "path": "/resume/versions/{version_id}/preview",
+      "source": "backend/app/resume/router.py",
+      "line": 502,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-126",
+      "method": "POST",
+      "path": "/resume/versions/{version_id}/compare",
+      "source": "backend/app/resume/router.py",
+      "line": 532,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-127",
+      "method": "GET",
+      "path": "/resume/versions/compare",
+      "source": "backend/app/resume/router.py",
+      "line": 532,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-128",
+      "method": "POST",
+      "path": "/resume/versions/compare",
+      "source": "backend/app/resume/router.py",
+      "line": 532,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-129",
+      "method": "DELETE",
+      "path": "/resume/versions/{version_id}",
+      "source": "backend/app/resume/router.py",
+      "line": 613,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-130",
+      "method": "GET",
+      "path": "/resume/versions/{version_id}/download",
+      "source": "backend/app/resume/router.py",
+      "line": 647,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-131",
+      "method": "POST",
+      "path": "/resume/versions/restore/{version_id}",
+      "source": "backend/app/resume/router.py",
+      "line": 669,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-132",
+      "method": "POST",
+      "path": "/resume/ats/score",
+      "source": "backend/app/resume/router.py",
+      "line": 702,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-133",
+      "method": "POST",
+      "path": "/resume/ats/quick-check",
+      "source": "backend/app/resume/router.py",
+      "line": 755,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-134",
+      "method": "GET",
+      "path": "/resume/ats/formatting-tips",
+      "source": "backend/app/resume/router.py",
+      "line": 792,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-135",
+      "method": "GET",
+      "path": "/settings/profile",
+      "source": "backend/app/settings/router.py",
+      "line": 30,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-136",
+      "method": "PATCH",
+      "path": "/settings/profile",
+      "source": "backend/app/settings/router.py",
+      "line": 48,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-137",
+      "method": "POST",
+      "path": "/settings/preferences/notification-frequency",
+      "source": "backend/app/settings/router.py",
+      "line": 90,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-138",
+      "method": "POST",
+      "path": "/settings/preferences/scrape-frequency",
+      "source": "backend/app/settings/router.py",
+      "line": 99,
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "API-139",
+      "method": "POST",
+      "path": "/settings/password/change",
+      "source": "backend/app/settings/router.py",
+      "line": 113,
+      "status": "NOT CHECKED"
+    }
+  ],
+  "screens": [
+    {
+      "id": "UI-001",
+      "source": "frontend/src/pages/AdminAuditLog.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-002",
+      "source": "frontend/src/pages/ApplicationsHistory.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-003",
+      "source": "frontend/src/pages/AppliedJobs.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-004",
+      "source": "frontend/src/pages/ApplyAssistant.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-005",
+      "source": "frontend/src/pages/Auth.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-006",
+      "source": "frontend/src/pages/CareerCopilot.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-007",
+      "source": "frontend/src/pages/CoverLetter.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-008",
+      "source": "frontend/src/pages/Dashboard.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-009",
+      "source": "frontend/src/pages/ForgotPassword.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-010",
+      "source": "frontend/src/pages/InterviewCoach.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-011",
+      "source": "frontend/src/pages/JobBoard.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-012",
+      "source": "frontend/src/pages/JobMatch.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-013",
+      "source": "frontend/src/pages/Landing.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-014",
+      "source": "frontend/src/pages/ResendVerification.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-015",
+      "source": "frontend/src/pages/ResetPassword.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-016",
+      "source": "frontend/src/pages/ResumeUpload.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-017",
+      "source": "frontend/src/pages/SecuritySettings.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-018",
+      "source": "frontend/src/pages/SkillGap.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-019",
+      "source": "frontend/src/pages/VerificationSuccess.jsx",
+      "status": "NOT CHECKED"
+    },
+    {
+      "id": "UI-020",
+      "source": "frontend/src/pages/VerifyEmail.jsx",
+      "status": "NOT CHECKED"
+    }
+  ],
+  "sources": [
+    "backend/alembic/env.py",
+    "backend/alembic/versions/0001_initial.py",
+    "backend/alembic/versions/0002_add_user_columns.py",
+    "backend/alembic/versions/0003_add_saved_job_table.py",
+    "backend/alembic/versions/0005_add_email_verification_columns.py",
+    "backend/alembic/versions/0006_add_refresh_tokens_and_audit_log.py",
+    "backend/alembic/versions/0007_add_2fa_columns_and_backup_codes.py",
+    "backend/alembic/versions/0008_add_interview_mode_column.py",
+    "backend/alembic/versions/0009_update_default_model.py",
+    "backend/alembic/versions/0010_jobs_and_profiles.py",
+    "backend/alembic/versions/0011_adaptive_career.py",
+    "backend/alembic/versions/0012_auth_refresh_and_lockout.py",
+    "backend/alembic/versions/0013_add_last_totp_step.py",
+    "backend/alembic/versions/0014_auth_audit_lockout_repair.py",
+    "backend/alembic/versions/0015_sync_all_models.py",
+    "backend/alembic/versions/0016_add_background_jobs.py",
+    "backend/alembic/versions/0017_ensure_applications_history_table.py",
+    "backend/alembic/versions/0018_resume_outbox_and_tenant.py",
+    "backend/alembic/versions/0019_add_token_version_to_users.py",
+    "backend/app/__init__.py",
+    "backend/app/analytics/__init__.py",
+    "backend/app/analytics/router.py",
+    "backend/app/applications/__init__.py",
+    "backend/app/applications/generator.py",
+    "backend/app/applications/router.py",
+    "backend/app/auth/__init__.py",
+    "backend/app/auth/models.py",
+    "backend/app/auth/router.py",
+    "backend/app/auth/utils.py",
+    "backend/app/config.py",
+    "backend/app/copilot/__init__.py",
+    "backend/app/copilot/router.py",
+    "backend/app/db/__init__.py",
+    "backend/app/db/dns.py",
+    "backend/app/db/models.py",
+    "backend/app/db/session.py",
+    "backend/app/db/urls.py",
+    "backend/app/feedback/__init__.py",
+    "backend/app/feedback/router.py",
+    "backend/app/interview/__init__.py",
+    "backend/app/interview/adaptive_engine.py",
+    "backend/app/interview/router.py",
+    "backend/app/interview/service.py",
+    "backend/app/jobs/__init__.py",
+    "backend/app/jobs/dates.py",
+    "backend/app/jobs/filter.py",
+    "backend/app/jobs/matcher.py",
+    "backend/app/jobs/repository.py",
+    "backend/app/jobs/router.py",
+    "backend/app/jobs/saved_router.py",
+    "backend/app/jobs/scheduler.py",
+    "backend/app/jobs/scraper.py",
+    "backend/app/jobs/sources/__init__.py",
+    "backend/app/jobs/sources/adzuna.py",
+    "backend/app/jobs/two_stage_matcher.py",
+    "backend/app/llm/__init__.py",
+    "backend/app/llm/ats_scorer.py",
+    "backend/app/llm/cover_letter.py",
+    "backend/app/llm/multi_model.py",
+    "backend/app/llm/ollama_client.py",
+    "backend/app/llm/resume_tailor.py",
+    "backend/app/llm/router.py",
+    "backend/app/llm/skill_gap.py",
+    "backend/app/main.py",
+    "backend/app/market/__init__.py",
+    "backend/app/market/router.py",
+    "backend/app/models/__init__.py",
+    "backend/app/models/schemas.py",
+    "backend/app/notifications/__init__.py",
+    "backend/app/notifications/router.py",
+    "backend/app/orchestrator/__init__.py",
+    "backend/app/orchestrator/capabilities.py",
+    "backend/app/orchestrator/engine.py",
+    "backend/app/orchestrator/enums.py",
+    "backend/app/orchestrator/execution.py",
+    "backend/app/orchestrator/models.py",
+    "backend/app/orchestrator/planner.py",
+    "backend/app/orchestrator/router.py",
+    "backend/app/orchestrator/schemas.py",
+    "backend/app/orchestrator/tools/__init__.py",
+    "backend/app/orchestrator/tools/definitions.py",
+    "backend/app/orchestrator/tools/exceptions.py",
+    "backend/app/orchestrator/tools/parser.py",
+    "backend/app/orchestrator/tools/permissions.py",
+    "backend/app/orchestrator/tools/registry.py",
+    "backend/app/orchestrator/tools/runner.py",
+    "backend/app/orchestrator/tools/schemas.py",
+    "backend/app/profile/__init__.py",
+    "backend/app/profile/router.py",
+    "backend/app/rag/__init__.py",
+    "backend/app/rag/generator.py",
+    "backend/app/rag/memory.py",
+    "backend/app/rag/retriever.py",
+    "backend/app/rag/router.py",
+    "backend/app/resume/__init__.py",
+    "backend/app/resume/cleaner.py",
+    "backend/app/resume/extractor.py",
+    "backend/app/resume/lifecycle.py",
+    "backend/app/resume/parser.py",
+    "backend/app/resume/router.py",
+    "backend/app/resume/tailor_constrained.py",
+    "backend/app/services/__init__.py",
+    "backend/app/services/email_service.py",
+    "backend/app/services/esco_service.py",
+    "backend/app/services/privacy_service.py",
+    "backend/app/settings/__init__.py",
+    "backend/app/settings/router.py",
+    "backend/app/utils/__init__.py",
+    "backend/app/utils/bg_jobs.py",
+    "backend/app/utils/job_queue.py",
+    "backend/app/utils/limiter.py",
+    "backend/app/vector_db/__init__.py",
+    "backend/app/vector_db/chroma_client.py",
+    "backend/app/vector_db/embedder.py",
+    "backend/app/vector_db/profile_store.py",
+    "backend/app/vector_db/telemetry.py",
+    "frontend/scripts/check-install.mjs",
+    "frontend/src/App.jsx",
+    "frontend/src/api/client.js",
+    "frontend/src/components/AnalyticsDashboard.jsx",
+    "frontend/src/components/ApplicationKanban.jsx",
+    "frontend/src/components/CoverLetterEditor.jsx",
+    "frontend/src/components/ErrorBoundary.jsx",
+    "frontend/src/components/FileDropzone.jsx",
+    "frontend/src/components/JobCard.jsx",
+    "frontend/src/components/LoadingSpinner.jsx",
+    "frontend/src/components/MarketInsights.jsx",
+    "frontend/src/components/MatchScore.jsx",
+    "frontend/src/components/ModelSelector.jsx",
+    "frontend/src/components/Navbar.jsx",
+    "frontend/src/components/PendingApprovalCard.jsx",
+    "frontend/src/components/RiskTierBadge.jsx",
+    "frontend/src/components/SavedJobsPipeline.jsx",
+    "frontend/src/components/SkillChart.jsx",
+    "frontend/src/context/AuthContext.jsx",
+    "frontend/src/hooks/useDurableJob.js",
+    "frontend/src/hooks/useJobPolling.js",
+    "frontend/src/hooks/useJobs.js",
+    "frontend/src/hooks/useProfile.js",
+    "frontend/src/hooks/useResume.js",
+    "frontend/src/index.css",
+    "frontend/src/main.jsx",
+    "frontend/src/pages/AdminAuditLog.jsx",
+    "frontend/src/pages/ApplicationsHistory.jsx",
+    "frontend/src/pages/AppliedJobs.jsx",
+    "frontend/src/pages/ApplyAssistant.jsx",
+    "frontend/src/pages/Auth.jsx",
+    "frontend/src/pages/CareerCopilot.jsx",
+    "frontend/src/pages/CoverLetter.jsx",
+    "frontend/src/pages/Dashboard.jsx",
+    "frontend/src/pages/ForgotPassword.jsx",
+    "frontend/src/pages/InterviewCoach.jsx",
+    "frontend/src/pages/JobBoard.jsx",
+    "frontend/src/pages/JobMatch.jsx",
+    "frontend/src/pages/Landing.jsx",
+    "frontend/src/pages/ResendVerification.jsx",
+    "frontend/src/pages/ResetPassword.jsx",
+    "frontend/src/pages/ResumeUpload.jsx",
+    "frontend/src/pages/SecuritySettings.jsx",
+    "frontend/src/pages/SkillGap.jsx",
+    "frontend/src/pages/VerificationSuccess.jsx",
+    "frontend/src/pages/VerifyEmail.jsx",
+    "frontend/src/utils/pendingTasks.js",
+    "frontend/src/utils/pollJob.js",
+    "frontend/src/utils/urlSecurity.js",
+    "qa_tests/backend/__init__.py",
+    "qa_tests/backend/conftest.py",
+    "qa_tests/backend/test_application_features.py",
+    "qa_tests/backend/test_auth.py",
+    "qa_tests/backend/test_auth_e2e_verification.py",
+    "qa_tests/backend/test_email_verification.py",
+    "qa_tests/backend/test_explanation.py",
+    "qa_tests/backend/test_feedback.py",
+    "qa_tests/backend/test_full_user_journey.py",
+    "qa_tests/backend/test_market.py",
+    "qa_tests/backend/test_phase2_neon_chroma_lifecycle.py",
+    "qa_tests/backend/test_phase3_auth_lifecycle.py",
+    "qa_tests/backend/test_phase5_career_dashboard.py",
+    "qa_tests/backend/test_phase5_career_e2e_regression.py",
+    "qa_tests/backend/test_phase5_performance.py",
+    "qa_tests/backend/test_phase7_copilot_rag.py",
+    "qa_tests/browser/navigation.py",
+    "qa_tests/browser/test_public_startup.py",
+    "qa_tests/frontend/pendingTasks.test.js",
+    "qa_tests/frontend/pollJob.test.js",
+    "qa_tests/frontend/urlSecurity.test.js",
+    "qa_tests/guards.py",
+    "qa_tests/integration/conftest.py",
+    "qa_tests/integration/test_browser_history_isolation.py",
+    "qa_tests/integration/test_canonical_job_filters.py",
+    "qa_tests/integration/test_job_queue_recovery.py",
+    "qa_tests/integration/test_live_ai_tools.py",
+    "qa_tests/integration/test_live_browser.py",
+    "qa_tests/integration/test_live_neon_flows.py",
+    "qa_tests/integration/test_local_vectors.py",
+    "qa_tests/integration/test_neon_dns_reconnect.py",
+    "qa_tests/manual/check_ollama.py",
+    "qa_tests/manual/check_ollama_tags.py",
+    "qa_tests/run_checks.py",
+    "qa_tests/tools/audit_inventory.py",
+    "qa_tests/tools/capture_readme_images.py",
+    "qa_tests/tools/check_python_definitions.py",
+    "qa_tests/tools/check_services.py",
+    "qa_tests/tools/run_isolated_neon_checks.py",
+    "qa_tests/unit/test_ai_failure_contracts.py",
+    "qa_tests/unit/test_api_responsiveness.py",
+    "qa_tests/unit/test_background_job_failures.py",
+    "qa_tests/unit/test_database_timeouts.py",
+    "qa_tests/unit/test_email_log_privacy.py",
+    "qa_tests/unit/test_interview_contract.py",
+    "qa_tests/unit/test_job_dispatch.py",
+    "qa_tests/unit/test_job_index_recovery.py",
+    "qa_tests/unit/test_legacy_entrypoints.py",
+    "qa_tests/unit/test_live_job_notifications.py",
+    "qa_tests/unit/test_live_job_search.py",
+    "qa_tests/unit/test_local_launcher.py",
+    "qa_tests/unit/test_local_model_routing.py",
+    "qa_tests/unit/test_match_explanation_scores.py",
+    "qa_tests/unit/test_neon_dns_recovery.py",
+    "qa_tests/unit/test_orchestrator_reads.py",
+    "qa_tests/unit/test_real_analytics_contracts.py",
+    "qa_tests/unit/test_real_chroma.py",
+    "qa_tests/unit/test_release_safety.py",
+    "qa_tests/unit/test_resource_guards.py",
+    "qa_tests/unit/test_role_suggestions.py",
+    "qa_tests/unit/test_ui_api_contracts.py",
+    "qa_tests/unit/test_workflow_validation.py",
+    "scripts/build_release.py",
+    "scripts/run_backend.py",
+    "scripts/run_local.py"
+  ],
+  "acceptance_categories": [
+    "success",
+    "input boundaries",
+    "authentication and two-user isolation",
+    "persistence and transactions",
+    "Neon/Chroma consistency",
+    "duplicates and concurrency",
+    "cancellation and timeouts",
+    "dependency failure",
+    "restart recovery",
+    "UI states and account switching",
+    "resource use",
+    "keyboard/accessibility"
+  ]
+}

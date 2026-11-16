@@ -16,7 +16,7 @@ AI-Powered-Assistance-Platform brings the job search journey into one applicatio
 
 Ollama runs language models locally, while Sentence Transformers produces local embeddings for semantic search. **Neon PostgreSQL stores relational data**, and ChromaDB stores derived vectors. Neon, public job sources, initial model downloads, and configured email providers require internet access.
 
-**Project status:** active development. The repair and verification loop is in progress; passing checks are recorded separately from untested features. Complete project acceptance remains open; recovery after process loss and the full failure matrix still require work. See [current audit status](qa_tests/status.json) and `qa_tests/results/latest.json` after running checks.
+**Project status:** active development. The repair and verification loop is in progress; passing checks are recorded separately from untested features. Complete project acceptance remains open; interrupted workflow-step recovery and the full failure matrix still require work. See [current audit status](qa_tests/status.json) and `qa_tests/results/latest.json` after running checks.
 
 ## Screenshots
 
@@ -88,7 +88,7 @@ flowchart LR
 - **Neon PostgreSQL** is the only relational database: accounts, profiles, application records, interview sessions, and operational state live there.
 - **ChromaDB** stores derived resume/job vectors for semantic retrieval. Its internal persistence is separate from relational application storage.
 - **Ollama** performs local language-model inference. Interviews and role suggestions use a smaller dedicated model by default.
-- **APScheduler** provides optional recurring work. Background operations are not yet guaranteed to survive process loss.
+- **APScheduler** provides optional recurring work. Search/analysis/draft requests use a separate Neon-backed queue with bounded interruption recovery; workflow-step recovery remains under development.
 
 ## Technology stack
 
@@ -110,6 +110,14 @@ Exact dependency declarations live in [backend/requirements.txt](backend/require
 ## Run locally
 
 Commands below are for Linux/macOS shells and start from the repository root. The tested workstation uses Python 3.12. Use **Node 20.19+ within v20, or Node 22.12+**, npm, a Neon development database, and a running local Ollama service. Leave enough disk space for dependencies, model weights, uploads, and vector indexes.
+
+Once dependencies and configuration are ready, start the local workspace with one command:
+
+```bash
+python3 scripts/run_local.py
+```
+
+This starts the frontend on port 3002 and the API on port 8000, waits for database readiness, and runs the source-change/service watcher. It restarts its own exited processes with a bounded retry budget and keeps logs in `logs/local/`. Press Ctrl+C to stop its children. Existing listeners are preserved; stop manually started project servers before using it. `--api-port` and `--ui-port` select alternate local ports. It does not install packages, migrate the database, or start the email/retention scheduler.
 
 ### 1. Install dependencies
 
@@ -283,7 +291,9 @@ Watch mode reruns checks after maintained source changes. It reports failures fo
 With `--services`, watch mode also probes the running frontend, backend, database readiness and configured local models every 30 seconds. These probes are read-only.
 `--integration` runs real local-vector, AI/API and two-user browser checks in separate processes. `--backend-suite` adds the broader isolated Neon suite with mocked AI. Both modes create marked disposable databases and retain them; neither runs continuously in watch mode. Browser checks use Chrome; set `CHROME_EXECUTABLE` if it is installed somewhere other than `/usr/bin/google-chrome`.
 
-Structured workflows now support profile summaries, live searches, AI application drafts, and explicitly approved application tracking records. Remaining work includes durable background dispatch after process loss and the broader failure/concurrency/voice verification matrix. Passing selected journeys or capturing these screens does not establish production readiness.
+Searches, resume analysis and application drafts now save a versioned request in Neon before returning a task ID. A queue consumer runs independently of the optional email scheduler, claims work with row locks, renews its lease, and reclaims expired leases after process loss. Results from stale workers are rejected. Interrupted work has at most three attempts; regular execution failures remain visible as failures. Internal request payloads are hidden from public status responses. Child searches use deterministic IDs to avoid duplicates after a parent retry. This provides at-least-once execution for these searches/drafts, not employer submission or exactly-once side effects.
+
+Structured workflows support profile summaries, live searches, AI application drafts, and explicitly approved application tracking records. Recovery for interrupted workflow steps, and the broader failure/concurrency/voice verification matrix, still need acceptance work. Passing selected journeys or capturing these screens does not establish production readiness.
 
 ## Troubleshooting
 
@@ -304,6 +314,7 @@ Structured workflows now support profile summaries, live searches, AI applicatio
 | `DATABASE_URL` | Neon PostgreSQL application URL, with TLS enabled |
 | `DIRECT_URL` | Direct Neon URL for migrations; keep it consistent with the application target |
 | `NEON_DNS_FALLBACK` | Optional public DNS fallback after system lookup failure; default `false` |
+| `DATABASE_STATEMENT_TIMEOUT_MS` | Runtime transaction-local query deadline; default 30000 ms, valid range 1000–600000. Migrations retain their normal DDL timing. |
 | `SECRET_KEY` | Strong random token-signing secret |
 | `TWO_FACTOR_ENCRYPTION_KEY` / `TWO_FACTOR_BACKUP_CODE_PEPPER` | Stable encryption key and secret pepper for two-factor credentials |
 | `OLLAMA_BASE_URL` | Local Ollama endpoint; default `http://127.0.0.1:11434` |

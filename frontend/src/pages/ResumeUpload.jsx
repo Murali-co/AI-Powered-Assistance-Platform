@@ -6,19 +6,31 @@ import FileDropzone from '../components/FileDropzone';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useDurableJob } from '../hooks/useDurableJob';
+import { writePendingTask } from '../utils/pendingTasks';
 
 export const ResumeUpload = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { uploadResume, isUploading, analyzeResume, isAnalyzing, pollJobStatus } = useResume();
+  const { uploadResume, isUploading, analyzeResume, isAnalyzing } = useResume();
   const { profile, isLoading: isLoadingProfile, refetch } = useProfile();
 
   const [targetRole, setTargetRole] = useState('');
   const [extractedPreview, setExtractedPreview] = useState('');
   const [_analyzingText, setAnalyzingText] = useState('');
-  const [pollingJobId, setPollingJobId] = useState(null);
   const [suggestedRoles, setSuggestedRoles] = useState([]);
   const [isSuggestingRoles, setIsSuggestingRoles] = useState(false);
+  const { user } = useAuth();
+  const { pendingJobId: pollingJobId, begin } = useDurableJob(user?.id, 'resume_analysis', result => {
+    toast.success('Skill gap analysis complete!');
+    setAnalyzingText('');
+    if (result.fetch_job_ids?.[0]) writePendingTask(user.id, 'live_search', result.fetch_job_ids[0]);
+    navigate('/skill-gap', { state: { ...result, ownerId: user.id } });
+  }, message => {
+    toast.error(message || 'Analysis failed.');
+    setAnalyzingText('');
+  });
 
   // If URL has analyze=true, auto-focus target role
   useEffect(() => {
@@ -63,26 +75,7 @@ export const ResumeUpload = () => {
     try {
       const response = await analyzeResume({ target_role: targetRole });
       const { job_id } = response;
-      setPollingJobId(job_id);
-      
-      // Start polling status
-      pollJobStatus(
-        job_id,
-        (_result) => {
-          // Success Callback
-          toast.success('Skill gap analysis complete!');
-          setPollingJobId(null);
-          setAnalyzingText('');
-          // Redirect to Job Board page
-          navigate('/jobs');
-        },
-        (errorMsg) => {
-          // Failure Callback
-          toast.error(errorMsg || 'Analysis failed.');
-          setPollingJobId(null);
-          setAnalyzingText('');
-        }
-      );
+      begin(job_id);
     } catch (error) {
       toast.error(error.message || 'Error triggering analysis.');
       setAnalyzingText('');
@@ -168,7 +161,7 @@ export const ResumeUpload = () => {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-dark-300 mb-1.5">Target Job Role</label>
+                <label htmlFor="target-role-input" className="block text-xs font-semibold text-dark-300 mb-1.5">Target Job Role</label>
                 <input
                   id="target-role-input"
                   type="text"

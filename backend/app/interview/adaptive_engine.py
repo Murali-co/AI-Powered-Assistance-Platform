@@ -33,16 +33,10 @@ class AdaptiveInterviewEngine:
             return None
         return self._questions[completed]
 
-    def score_answer(self, answer: str) -> float:
-        cleaned = (answer or "").strip()
-        if not cleaned:
-            return 0.0
-        return min(1.0, max(0.1, len(cleaned) / 250.0))
+    async def score_answer(self, answer: str, question: str) -> float:
+        from .service import evaluate
+        return (await evaluate(question, answer, 3))['score'] / 100
 
-    def build_feedback(self, answer: str) -> Dict[str, object]:
-        score = self.score_answer(answer)
-        return {
-            "score": round(score, 3),
-            "status": "strong" if score >= 0.7 else "needs_improvement",
-            "tip": "Use specific examples, measurable impact, and results.",
-        }
+    async def build_feedback(self, answer: str, question: str) -> Dict[str, object]:
+        from .service import evaluate
+        return await evaluate(question, answer, 3)

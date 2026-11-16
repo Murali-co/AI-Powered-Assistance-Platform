@@ -1,5 +1,6 @@
 import json
 import re
+from fastapi import HTTPException
 from typing import List
 from app.llm.ollama_client import OllamaClient
 from app.services.privacy_service import PrivacyPreservingEngine
@@ -64,14 +65,8 @@ Return ONLY valid JSON.
                 return res
             raise ValueError("Invalid format")
             
-        except Exception as e:
-            print(f"Error generating tailored bullets: {e}")
-            # Fallback bullets derived from experience
-            return [
-                "Tailored experience bullet point focusing on core software engineering principles.",
-                "Demonstrated track record of delivering scalable solutions aligned with job requirements.",
-                "Collaborated with cross-functional teams to integrate modern tooling and best practices."
-            ]
+        except Exception:
+            raise HTTPException(503, 'Local AI could not generate grounded resume bullets. Please retry.') from None
 
 
 class ResumeTailorEngine:
@@ -133,14 +128,6 @@ Return ONLY valid JSON.
                     data["tailored_resume"] = PrivacyPreservingEngine.restore_text(data["tailored_resume"], mapping)
                 return data
             raise ValueError("Incomplete keys in LLM JSON response")
-        except Exception as e:
-            print(f"Error in ResumeTailorEngine: {e}")
-            # Fallback response
-            return {
-                "tailored_resume": f"[TAILORED EXPERIENCE]\n{resume_text}",
-                "keyword_changes": [
-                  {"original": "Software development", "optimized": "Asynchronous API development and system optimization"}
-                ],
-                "ats_score_estimate": 88
-            }
+        except Exception:
+            raise HTTPException(503, 'Local AI could not produce a valid tailored resume. Please retry.') from None
 

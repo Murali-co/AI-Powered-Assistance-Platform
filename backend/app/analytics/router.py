@@ -140,41 +140,50 @@ async def get_analytics_dashboard(current_user: dict = Depends(get_current_user)
     """
     return await run_in_threadpool(_build_analytics_dashboard, current_user["id"])
 
+def score_distribution(jobs):
+    import math
+    from statistics import mean, median
+    scores = [float(job['match_score']) for job in jobs
+              if isinstance(job.get('match_score'), (int, float))
+              and math.isfinite(job['match_score']) and 0 <= job['match_score'] <= 100]
+    bins = [{'range': f'{start}-{start+20}%', 'count': 0} for start in range(0, 100, 20)]
+    for score in scores:
+        bins[min(int(score // 20), 4)]['count'] += 1
+    return {'bins': bins, 'average_match': round(mean(scores), 1) if scores else None,
+            'median_match': median(scores) if scores else None, 'sample_size': len(scores)}
+
+
 @router.get("/match-score-distribution")
 async def get_match_score_distribution(current_user: dict = Depends(get_current_user)):
-    """Get distribution of match scores (requires ChromaDB data)"""
-    # This would integrate with JobMatcher to show match score distribution
-    # For now, return sample data structure
-    return {
-        "bins": [
-            {"range": "0-20%", "count": 5},
-            {"range": "20-40%", "count": 12},
-            {"range": "40-60%", "count": 28},
-            {"range": "60-80%", "count": 35},
-            {"range": "80-100%", "count": 20},
-        ],
-        "average_match": 67.5,
-        "median_match": 70
-    }
+    from app.jobs.matcher import JobMatcher
+    from app.jobs.filter import JobFilter
+    jobs = await run_in_threadpool(JobMatcher.match_jobs_for_user, current_user['id'], limit=100, hours_old=168)
+    return score_distribution(JobFilter.live_jobs(jobs, 168))
+
 
 @router.get("/missing-skills")
 async def get_missing_skills(current_user: dict = Depends(get_current_user)):
-    """Get frequently requested skills not in user's profile"""
-    # This would analyze job descriptions against user skills
-    # Sample data structure
+    from app.vector_db.profile_store import ProfileStore
+    from app.jobs.repository import list_live_jobs
+    from app.market.router import skills_in_description
+    from app.services.esco_service import ESCOSkillService
+    profile = await run_in_threadpool(ProfileStore.get_profile, current_user['id'])
+    skills = (profile or {}).get('skills', [])
+    jobs = await run_in_threadpool(list_live_jobs, 168)
+    counts = Counter()
+    for job in jobs:
+        for required in skills_in_description(job.get('description', '')):
+            if not any(ESCOSkillService.evaluate_skill_relation(required, candidate)[0] == 'exact' for candidate in skills):
+                counts[required] += 1
     return {
-        "missing_skills": [
-            {"skill": "Kubernetes", "occurrences": 12, "trend": "up"},
-            {"skill": "AWS", "occurrences": 10, "trend": "up"},
-            {"skill": "GraphQL", "occurrences": 8, "trend": "stable"},
-            {"skill": "Terraform", "occurrences": 7, "trend": "up"},
-            {"skill": "Docker", "occurrences": 9, "trend": "stable"},
-        ],
-        "recommendation": "Consider learning Kubernetes and AWS to improve match scores"
+        'missing_skills': [{'skill': skill, 'occurrences': count, 'trend': None} for skill, count in counts.most_common(10)],
+        'recommendation': 'Review recurring requirements against your target role.' if counts else 'No missing-skill evidence in the current listing sample.',
+        'sample_size': len(jobs),
     }
 
+
 @router.get("/conversion-funnel")
-async def get_conversion_funnel(current_user: dict = Depends(get_current_user)):
+def get_conversion_funnel(current_user: dict = Depends(get_current_user)):
     """Get conversion funnel: Applied -> Interview -> Offer"""
     db = SessionLocal()
     try:
@@ -189,7 +198,7 @@ async def get_conversion_funnel(current_user: dict = Depends(get_current_user)):
         
         return {
             "funnel": [
-                {"stage": "Applied", "count": applied, "percentage": 100},
+                {"stage": "Applied", "count": applied, "percentage": 100 if applied else 0},
                 {"stage": "Interview", "count": interviews, "percentage": (interviews/applied*100) if applied > 0 else 0},
                 {"stage": "Offer", "count": offers, "percentage": (offers/applied*100) if applied > 0 else 0},
             ],

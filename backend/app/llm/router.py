@@ -17,8 +17,7 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 class ModelSelectionRequest(BaseModel):
     model_name: str
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra='ignore')
 
 class ModelInfo(BaseModel):
     name: str
@@ -63,7 +62,7 @@ async def get_model_info(model_name: str, current_user: dict = Depends(get_curre
         )
 
 @router.get("/user-model-preference")
-async def get_user_model_preference(current_user: dict = Depends(get_current_user)):
+def get_user_model_preference(current_user: dict = Depends(get_current_user)):
     """
     Get the user's selected LLM model
     """
@@ -71,6 +70,8 @@ async def get_user_model_preference(current_user: dict = Depends(get_current_use
     try:
         user = db.query(User).filter(User.id == current_user["id"]).first()
         model_name = getattr(user, 'preferred_model', None) or settings.OLLAMA_MODEL
+        if not MultiModelManager.is_approved_model(model_name):
+            model_name = settings.OLLAMA_MODEL
         return {
             "user_id": current_user["id"],
             "preferred_model": model_name,
@@ -82,7 +83,7 @@ async def get_user_model_preference(current_user: dict = Depends(get_current_use
 @router.post("/user-model-preference")
 @router.post("/select")
 @limiter.limit("20/minute")
-async def set_user_model_preference(
+def set_user_model_preference(
     request: Request,
     body: ModelSelectionRequest,
     current_user: dict = Depends(get_current_user)
